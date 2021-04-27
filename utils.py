@@ -65,7 +65,16 @@ def target_to_text(target):
             text += idx_map[idx]
     return text
 
-def weights_init_unif(module, a, b):
+def weights_init_unif(module : nn.Module, a : float, b : float):
+    """
+    Initialize all weights in module to values within [a, b].
+
+    Args:
+        module (nn.Module): Target network 
+        a (float): Lower bound 
+        b (float): Upper bound
+    """
+    
     for p in module.parameters():
         nn.init.uniform_(p.data, a=a, b=b)
 

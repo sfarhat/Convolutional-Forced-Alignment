@@ -3,6 +3,19 @@ from config import CHECKPOINT_DIR
 from utils import save_checkpoint
 
 def train(model, train_loader, criterion, optimizer, epoch, device, writer):
+    """
+    Train the model for 1 epoch.
+
+    Args:
+        model (nn.Module): Network to train
+        train_loader (torch.utils.data.dataloader): DataLoader for training dataset
+        criterion (nn.modules.loss): Loss function
+        optimizer (torch.optim): Optimizer
+        epoch (int): Current epoch #
+        device (torch.device): Device (cpu or cuda)
+        writer (torch.utils.tensorboard.writer): Tensorboard debugging info
+    """
+
     model.train()
     data_len = len(train_loader.dataset)
     for batch_num, data in enumerate(train_loader): 

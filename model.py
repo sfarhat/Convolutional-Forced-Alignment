@@ -24,7 +24,7 @@ class Conv_Layer(nn.Module):
             self.activation = nn.PReLU(init=0.1)
         elif activation == "maxout":
             # Better results (theoretically), worse memory usage
-            self.conv2 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel, padding=(0,kernel[1]//2))
+            self.conv2 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=self.kernel, padding=self.padding, stride=self.stride)
         else:
             raise Exception("Not a supported activation function. Choose between 'relu', 'prelu', or 'maxout'.")
        
@@ -33,6 +33,12 @@ class Conv_Layer(nn.Module):
 
         # Pool reduces dimension: ((old - (pool_dim - 1) - 1) / pool_dim) + 1, turns out to do 118 -> 39 in our case
         self.pool = pool
+
+    def conv_maxout(self, x):
+        # 2-way maxout creates 2 versions of a layer and maxes them, that's it
+        
+        x1, x2 = self.conv(x), self.conv2(x)
+        return torch.maximum(x1, x2)
 
     def forward(self, x):
         if self.maxout:
@@ -46,12 +52,6 @@ class Conv_Layer(nn.Module):
 
         x = self.dropout(x)
         return x
-
-    def conv_maxout(self, x):
-        # 2-way maxout creates 2 versions of a layer and maxes them, that's it
-        
-        x1, x2 = self.conv(x), self.conv2(x)
-        return torch.maximum(x1, x2)
 
     def get_new_feature_map_dimension(self, in_dim):
         # Convolution layer + operations will decrease the dimensions of the computed feature maps.
@@ -90,6 +90,11 @@ class FC_Layer(nn.Module):
         
         self.dropout = nn.Dropout(p=dropout)
 
+    def fc_maxout(self, x):
+        
+        x1, x2 = self.fc(x), self.fc2(x)
+        return torch.maximum(x1, x2)
+
     def forward(self, x):
         if self.maxout:
             x = self.fc_maxout(x)
@@ -99,17 +104,14 @@ class FC_Layer(nn.Module):
         x = self.dropout(x)
         return x
 
-    def fc_maxout(self, x):
-        
-        x1, x2 = self.fc(x), self.fc2(x)
-        return torch.maximum(x1, x2)
-
 class ASR_1(nn.Module):
 
         """
+        Neural network inspired by Zhang et. al (2017)
+
         Unlike the other layers, the first convolutional layer is followed by a pooling layer. 
         The pooling size is 3 × 1, which means we only pool over the frequency axis. The filter size is 3 × 5 across the layers. 
-        The model has 256 feature maps in the first four convolutional layers and 256 feature maps in the remaining six convolutional layers. 
+        The model has 128 feature maps in the first four convolutional layers and 256 feature maps in the remaining six convolutional layers. 
         Each fully-connected layer has 1024 units. Maxout with 2 piece-wise linear functions is used as the activation function.
 
         We differ from the given model by using ReLU instead of Maxout for the activation function. This is simply due to memory constraints on 
@@ -123,6 +125,7 @@ class ASR_1(nn.Module):
             # Interesting note: the size of the weight tensors are (out_channels, in_channels, kernel[0], kernel[1])
             # Understanding why this is different from the conv output shape of (batch_size, out_channels, height, width)
             # is a good exercise for understanding how CNNs work
+            # https://discuss.pytorch.org/t/why-add-an-extra-dimension-to-convolution-layer-weights/86954/2
 
             self.cnn_layers = nn.Sequential(
                             Conv_Layer(in_channels=in_dim, out_channels=128, kernel=(3,5), activation="relu", dropout=0, pool=(3,1)),

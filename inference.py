@@ -2,6 +2,16 @@ import torch
 from utils import target_to_text
 
 def test(model, test_loader, criterion, device):
+    """
+    Evaluation for model.
+
+    Args:
+        model (nn.Module): Network to train
+        test_loader (torch.utils.data.dataloader): DataLoader for test dataset
+        criterion (nn.modules.loss): Loss function
+        device (torch.device): Device (cpu or cuda)
+    """
+
     model.eval()
     with torch.no_grad():
         for inputs, input_lengths, targets, target_lengths in test_loader:
