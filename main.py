@@ -3,7 +3,7 @@ import torch.nn as nn
 import torchaudio
 from torch.utils.tensorboard import SummaryWriter
 from config import hparams, DATASET_DIR
-from preprocess import preprocess_librispeech
+from preprocess import LibrispeechCollator
 from utils import weights_init_unif, load_from_checkpoint, save_checkpoint
 from model import ASR_1
 from training import train
@@ -21,11 +21,10 @@ def main():
     # dev_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="dev-clean", download=True)
     test_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="test-clean", download=True)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=hparams["batch_size"], shuffle=True, collate_fn=preprocess_librispeech, pin_memory=use_cuda)
-
+    collator = LibrispeechCollator(hparams["n_mels"])
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=hparams["batch_size"], shuffle=True, collate_fn=collator, pin_memory=use_cuda)
     # dev_loader = torch.utils.data.DataLoader(dev_dataset, batch_size=hparams["batch_size"], shuffle=True, collate_fn=preprocess, pin_memory=use_cuda)
-
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=hparams["batch_size"], shuffle=False, collate_fn=preprocess_librispeech, pin_memory=use_cuda)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=hparams["batch_size"], shuffle=False, collate_fn=collator, pin_memory=use_cuda)
 
     # 1 channel input from feature spectrogram, 29 dim output from char_map + blank for CTC, 120 features
     net = ASR_1(in_dim=1, num_classes=29, num_features=120, activation=hparams["activation"], dropout=0.3)
@@ -44,7 +43,7 @@ def main():
 
     for epoch in range(hparams["epochs"]):
         train(net, train_loader, criterion, optimizer, epoch, device, writer)
-        # save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["batch_size"])
+        save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["batch_size"])
     
     # TODO: Where/when to do dev set?
 
