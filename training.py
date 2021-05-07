@@ -1,8 +1,6 @@
 import torch
-from config import CHECKPOINT_DIR
-from utils import save_checkpoint
 
-def train(model, train_loader, criterion, optimizer, epoch, device, writer):
+def train(model, train_loader, criterion, optimizer, epoch, device):
     """
     Train the model for 1 epoch.
 
@@ -26,17 +24,20 @@ def train(model, train_loader, criterion, optimizer, epoch, device, writer):
 
         # this is shape (batch size, time, num_classes)
         output = model(inputs)
+        # Debug note: breakpoint here for expression: torch.isnan(output).any()
 
         # output passed in should be of shape (time, batch size, num_classes)
         output = output.transpose(0, 1)
         loss = criterion(output, targets, input_lengths, target_lengths)
         loss.backward()
+        # Debug note: breakpoint here for expression: torch.isnan(loss).any()
 
         optimizer.step() 
 
-        if batch_num % 100 == 0 or batch_num == data_len:
-            writer.add_scalar("Loss/train", loss.item(), epoch * data_len + batch_num * len(inputs))
-            writer.flush()     
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_num * len(inputs), data_len,
-                100. * batch_num / len(train_loader), loss.item()))
+        if batch_num % 10 == 0 or batch_num == data_len:
+            # writer.add_scalar("Loss/train", loss.item(), epoch * data_len + batch_num * len(inputs))
+            # writer.flush()     
+
+            # len(inputs) is batch size, data_len is total size of samples in dataset, len(train_loader) is number of batches
+
+            print(f"Train Epoch: {epoch} [{(batch_num+1) * len(inputs)}/{data_len} ({100. * (batch_num+1) / len(train_loader):.2f}%)]\tLoss: {loss.item():.6f}")

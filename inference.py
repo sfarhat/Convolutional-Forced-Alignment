@@ -21,25 +21,25 @@ def test(model, test_loader, criterion, device):
             output = output.transpose(0, 1)
             loss = criterion(output, targets, input_lengths, target_lengths)
             
-            # TODO: Decoding algo
+            # TODO: Beam search decoding algo instead of greedy
             # Transpose back so that we can iterate over batch dimension
             output = output.transpose(0, 1)
-            for log_probs in output:
-                guessed_target = greedy_decode(torch.argmax(log_probs, dim=1))
+            for log_probs, target_len in zip(output, target_lenghs):
+                guessed_target = greedy_decode(torch.argmax(log_probs, dim=1), target_len)
 
-def greedy_decode(char_indices):
+def greedy_decode(char_indices, target_len):
 
-    # TODO: incorporate target_length in here to reduce amount of work necessary
     transcript = []
     blank_seen = False
     prev = None
-    for i in char_indices:
-        if i == prev and not blank_seen:
+    for idx in range(target_len):
+        char_idx = char_indices[idx]
+        if char_idx == prev and not blank_seen:
            continue
-        elif i == 0:
+        elif char_idx == 0:
             blank_seen = True
         else:
-            transcript.append(i)
+            transcript.append(char_idx)
             blank_seen = False
 
     return target_to_text(transcript)

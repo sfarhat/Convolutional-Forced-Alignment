@@ -12,6 +12,8 @@ from inference import test
 # import numpy as np
 
 def main():
+
+    torch.manual_seed(9)
     
     # Without this, torchaudio 0.7 uses deprecated "sox" backend which only supports 16-bit integers
     torchaudio.set_audio_backend("sox_io")
@@ -44,14 +46,15 @@ def main():
     # writer = SummaryWriter()
     # writer.add_graph(net)
 
-    for epoch in range(hparams["epochs"]):
-        # train(net, train_loader, criterion, optimizer, epoch, device)
-        save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["ADAM_lr"])
+    # for epoch in range(hparams["epochs"]):
+    #     train(net, train_loader, criterion, optimizer, epoch, device)
+    #     save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["ADAM_lr"])
     
     # TODO: Where/when to do dev set?
 
     # Fetch checkpoint (if it exists) given desired hyperparamters
-    # net, _, _ = load_from_checkpoint(net, optimizer, hparams["activation"], hparams["ADAM_lr"], epoch, device)
+    desired_epoch = 9
+    net, _, _ = load_from_checkpoint(net, optimizer, hparams["activation"], hparams["ADAM_lr"], 0, device)
 
     # filter_list = list(net.children())[0][0].conv.weight.data
     # im = filter_list[0]
