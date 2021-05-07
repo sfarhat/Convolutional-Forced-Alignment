@@ -45,9 +45,11 @@ class LibrispeechCollator(object):
         for waveform, _, transcript, _, _, _ in dataset:
             # Transpose to move time dimension into proper padding position for later
             features = self.features_from_waveform(waveform).transpose(0, 1)
+            # Debug note: breakpoint here for expression: torch.isnan(features).any()
+
             # Adding 'spectrograms' of shape (time x features)
             inputs.append(features)
-            input_lengths.append(features.shape[0])
+            input_lengths.append(features.shape[0]) # some examples online divide the shape by 2, why?
 
             target = text_to_target(transcript.lower(), char_map)
             targets.append(target)
@@ -85,7 +87,9 @@ class LibrispeechCollator(object):
 
         # Grab desired features
         # Takes in audio of shape (..., time) returns (..., n_mels, new_time) where n_mels defaults to 128
-        log_mel_spectrogram = torch.log(torchaudio.transforms.MelSpectrogram(n_mels=self.n_mels)(data))
+        log_offset = 1e-6
+        # adding offset because log(0) is nan, led to inputs becoming nan -> nan ouputs -> nan loss
+        log_mel_spectrogram = torch.log(torchaudio.transforms.MelSpectrogram(n_mels=self.n_mels)(data) + log_offset)
         # Takes in audio of shape (..., time) returns (..., n_mfcc, new_time) where n_mfcc defaults to 40
         # mfcc_features = torchaudio.transforms.MFCC(n_mfcc=n_mfcc, log_mels=True)(data) 
         deltas = torchaudio.functional.compute_deltas(log_mel_spectrogram)

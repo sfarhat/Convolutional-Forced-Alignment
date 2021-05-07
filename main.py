@@ -1,18 +1,21 @@
 import torch
 import torch.nn as nn
 import torchaudio
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 from config import hparams, DATASET_DIR
 from preprocess import LibrispeechCollator
 from utils import weights_init_unif, load_from_checkpoint, save_checkpoint
 from model import ASR_1
 from training import train
 from inference import test
-import matplotlib.pyplot as plt
-import numpy as np
+# import matplotlib.pyplot as plt
+# import numpy as np
 
 def main():
     
+    # Without this, torchaudio 0.7 uses deprecated "sox" backend which only supports 16-bit integers
+    torchaudio.set_audio_backend("sox_io")
+
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     print(device)
@@ -38,16 +41,17 @@ def main():
     optimizer = torch.optim.Adam(net.parameters(), lr=hparams["ADAM_lr"])
     finetune_optimizer = torch.optim.SGD(net.parameters(), lr=hparams["SGD_lr"], weight_decay=hparams["SGD_l2_penalty"])
 
-    writer = SummaryWriter()
+    # writer = SummaryWriter()
     # writer.add_graph(net)
 
     for epoch in range(hparams["epochs"]):
-        train(net, train_loader, criterion, optimizer, epoch, device, writer)
-        save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["batch_size"])
+        # train(net, train_loader, criterion, optimizer, epoch, device)
+        save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["ADAM_lr"])
     
     # TODO: Where/when to do dev set?
 
-    # net, _, _ = load_from_checkpoint(net, optimizer, "activation-prelu_batch-size-3_epoch-5.pt", device)
+    # Fetch checkpoint (if it exists) given desired hyperparamters
+    # net, _, _ = load_from_checkpoint(net, optimizer, hparams["activation"], hparams["ADAM_lr"], epoch, device)
 
     # filter_list = list(net.children())[0][0].conv.weight.data
     # im = filter_list[0]
