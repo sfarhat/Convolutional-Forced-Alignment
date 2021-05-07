@@ -1,5 +1,5 @@
 DATASET_DIR = "/mnt/d/Datasets"
-CHECKPOINT_DIR = "./checkpoints"
+CHECKPOINT_DIR_NAME = "checkpoints"
 
 hparams = {
     "ADAM_lr": 10e-4,
