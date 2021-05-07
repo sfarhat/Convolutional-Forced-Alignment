@@ -16,7 +16,7 @@ Well, we don't actually use raw waveforms when working with audio usually; inste
 
 Now, all we have to do is find an appropriate CNN that does End-to-End Automatic Speech Recognition (ASR), implement it, and see if the heat maps are doing their job to find at what times in the audio we should be looking at.
 
-(cite the ones we are using)
+Here is the model I am using by [Zhang et. al (2017)](https://arxiv.org/pdf/1701.02720.pdf).
 
 Boom, timestamps. And a new idea! (I think)
 
@@ -30,9 +30,19 @@ Is this a new idea? No. I am re-building the wheel here. Will it be fun? Maybe, 
 
 ## Progress
 
-As of 3/15, the appropriate ASR CNN is implmented with CUDA functionality, but it only learns to output the blank label. This is probably due to not having been trained long enough. While I would, there are 2 outstanding issues:
+**3/15**
+
+The appropriate ASR CNN is implmented with CUDA functionality, but it only learns to output the blank label. This is probably due to not having been trained long enough. While I would, there are 2 outstanding issues:
 
 * The loss clips to NaN. When using maxout, this occurs within the 1st epoch, whereas with PReLU, this occured during the 7th epoch. Training must be stopped then.
 * My single RTX 2060 isn't capable of doing the full batchsize of 20 as cited in the paper, so instead I used 3.
 
 Both of these can be remedied by more compute, so progress is stalled until then and a pretrained network is probably a good step from here.
+
+**5/7**
+
+The NaN problem has been solved! AFter moving the log Mel Spectrograms instead of MFCC features, it was observed that NaN loss was being caused by NaNs in the output, which in turn was being caused by NaN's in the input features. This was because of a simple overlooked problem: log(0) = NaN. So when any Mel Spectrogram had a 0 in it, the entire model would break!
+
+The solution: adding a small constant offset to the waveform before taking the log.
+
+Did this fix everything? No. While we were now able to train for 10 epochs and get a steadily decreasing loss, the model still overwhelmingly predicts the blank label. I think digging deeper into CTCLoss and how the weights of the model are being updated will shed some light as to why this is happening.
