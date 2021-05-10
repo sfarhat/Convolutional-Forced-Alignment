@@ -8,7 +8,9 @@ hparams = {
     "SGD_l2_penalty": 1e-5,
     "weights_init_a": -0.05,
     "weights_init_b": 0.05,
-    "epochs": 10,
+    "epochs": 50,
     "activation": "prelu",
-    "n_mels": 40
+    "n_mels": 40,
+    "start_epoch": 0,
+    "train": True 
 }

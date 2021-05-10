@@ -8,8 +8,6 @@ from utils import weights_init_unif, load_from_checkpoint, save_checkpoint
 from model import ASR_1
 from training import train
 from inference import test
-# import matplotlib.pyplot as plt
-# import numpy as np
 
 def main():
 
@@ -46,23 +44,22 @@ def main():
     # writer = SummaryWriter()
     # writer.add_graph(net)
 
-    # for epoch in range(hparams["epochs"]):
-    #     train(net, train_loader, criterion, optimizer, epoch, device)
-    #     save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["ADAM_lr"])
-    
+    if hparams["start_epoch"] > 0: 
+        net, optimizer = load_from_checkpoint(net, optimizer, hparams["activation"], hparams["ADAM_lr"], hparams["start_epoch"], device)
+        start_epoch = hparams["start_epoch"]
+    else:
+        start_epoch = 0
+
+    # TODO: during epoch 10, loss exploded but stabilized, during epoch 17 exploded into nan and never recovered
+    if train:
+        for epoch in range(start_epoch, start_epoch + hparams["epochs"]):
+            train(net, train_loader, criterion, optimizer, epoch, device)
+            save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["ADAM_lr"])
+    else: 
+        test(net, test_loader, criterion, device)
+
     # TODO: Where/when to do dev set?
 
-    # Fetch checkpoint (if it exists) given desired hyperparamters
-    desired_epoch = 9
-    net, _, _ = load_from_checkpoint(net, optimizer, hparams["activation"], hparams["ADAM_lr"], 0, device)
-
-    # filter_list = list(net.children())[0][0].conv.weight.data
-    # im = filter_list[0]
-    # im = np.transpose(im, (1,2,0))
-    # plt.imshow(im)
-    # plt.show()
-
-    test(net, test_loader, criterion, device)
     
 
 if __name__ == "__main__":
