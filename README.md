@@ -4,7 +4,7 @@ In Karaoke, lyrics are presented on screen in time with the appropriate portion 
 
 ## Background
 
-Formally, this is the Forced Alignment problem: aligning an output transcipt with an input sequence song. It is actually a solved problem, but that's no fun. Because of ~trends~, I want to approach it from a deep learning perspective rather than the classic methods involing Hidden Markov Models (HMM) or Dynamic Time Warping (DTW). A list of current old-school methods can be found [here](https://github.com/pettarin/forced-alignment-tools) (though it hasn't been updated since 2018).
+Formally, this is the Forced Alignment problem: aligning an output transcipt with an input sequence song. It is actually a solved problem, but that's no fun. Because of *trends*, I want to approach it from a deep learning perspective rather than the classic methods involing Hidden Markov Models (HMM) or Dynamic Time Warping (DTW). A list of current old-school methods can be found [here](https://github.com/pettarin/forced-alignment-tools) (though it hasn't been updated since 2018).
 
 There are 2 ideas that I wish to focus on to get this done: activation maps and attention.
 
@@ -46,3 +46,28 @@ The NaN problem has been solved! AFter moving the log Mel Spectrograms instead o
 The solution: adding a small constant offset to the waveform before taking the log.
 
 Did this fix everything? No. While we were now able to train for 10 epochs and get a steadily decreasing loss, the model still overwhelmingly predicts the blank label. I think digging deeper into CTCLoss and how the weights of the model are being updated will shed some light as to why this is happening.
+
+**5/11**
+
+Looking for a solution to the blank label problem, [this article](http://www.tbluche.com/ctc_and_blank.html) inspired me to train the network for 50 epochs, as it is apparenlty not uncommon for CTC to overwhelmingly prefer the blank label in early training. However, when doing this, something interesting happened: the loss steadily decreased until epoch 10, when it randomly exploded, but stabilized back down (albeit to a relatively higher loss than what it was pre-explosion). Thought we were in the clear? Wrong. At epoch 17, the same explosion happened again, except this time it reached NaN and never recovered :(.
+
+How to fix this? Even though I was using ADAM, I had a hunch that my learning rate was too high (10e-4, which was deceivingly higher than what I thought it was in my mind, it's only .001! Boo me, and kinda the author of the paper I was reading from, for using 10 instead of 1 as the base). Instead, I just switched to a learning rate of 10e-5, or .0001. This did cause the loss to move slower, but it worked without any funny business! Over 50 epochs, it steadily decreased all the way down until it reach a loss of <1.
+
+So, I managed to train the network, but did it help? Kinda. Using just a Greedy Decoder, I get the following result:
+
+    Guessed transcript:  the dus were sufeor to ecs ail and the son had dispurst the miss and wasshetting asstron and clear lit in the forest when the travelers res oumnd their jurny
+    True transcript: the dews were suffered to exhale and the sun had dispersed the mists and was shedding a strong and clear light in the forest when the travelers resumed their journey
+    
+As you can see, it is getting a phonetically similar sentence, but the spellings are atrocious. 
+
+What can we do from here? 
+
+* In CTC literature, it is well-known that using a Greedy Decoder is not the move as it ignores any kind of temporal structure of conditional probability information between characters. So the money move from here is to find/implement a Beam Search with a Language Model.
+* Train on the dev set as well for fine-tuning. I'm not sure this is totally necessary since the goal isn't to create a perfect network, but just a working one for something else.
+
+(Fun information: it took around 30 hours to train the whole thing. My room got very hot and the sound of a GPU fan running isn't really the greatest white noise for falling asleep.)
+
+
+
+
+
