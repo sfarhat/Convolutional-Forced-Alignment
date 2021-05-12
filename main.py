@@ -38,6 +38,7 @@ def main():
     # for fine tuning: SGD w/ lr 10e-5, l2 penalty w/ coeff=1e-5
 
     criterion = nn.CTCLoss().to(device)
+    # TODO: consider using ADAMW for LR decay
     optimizer = torch.optim.Adam(net.parameters(), lr=hparams["ADAM_lr"])
     finetune_optimizer = torch.optim.SGD(net.parameters(), lr=hparams["SGD_lr"], weight_decay=hparams["SGD_l2_penalty"])
 
@@ -50,8 +51,7 @@ def main():
     else:
         start_epoch = 0
 
-    # TODO: during epoch 10, loss exploded but stabilized, during epoch 17 exploded into nan and never recovered
-    if train:
+    if hparams["train"]:
         for epoch in range(start_epoch, start_epoch + hparams["epochs"]):
             train(net, train_loader, criterion, optimizer, epoch, device)
             save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["ADAM_lr"])

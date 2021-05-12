@@ -2,7 +2,7 @@ DATASET_DIR = "/mnt/d/Datasets"
 CHECKPOINT_DIR_NAME = "checkpoints"
 
 hparams = {
-    "ADAM_lr": 10e-4,
+    "ADAM_lr": 10e-5,
     "batch_size": 3,
     "SGD_lr": 10e-5,
     "SGD_l2_penalty": 1e-5,
@@ -11,6 +11,6 @@ hparams = {
     "epochs": 50,
     "activation": "prelu",
     "n_mels": 40,
-    "start_epoch": 0,
-    "train": True 
+    "start_epoch": 50,
+    "train": False 
 }

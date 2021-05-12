@@ -29,8 +29,15 @@ def train(model, train_loader, criterion, optimizer, epoch, device):
         # output passed in should be of shape (time, batch size, num_classes)
         output = output.transpose(0, 1)
         loss = criterion(output, targets, input_lengths, target_lengths)
+
+        # if torch.isnan(loss).any():
+        #     for p,n in zip(model.parameters(), model._all_weights[0]):
+        #         if n[:6] == 'weight':
+        #             print('===========\ngradient:{}\n----------\n{}'.format(n,p.grad))
+
         loss.backward()
         # Debug note: breakpoint here for expression: torch.isnan(loss).any()
+
 
         optimizer.step() 
 
