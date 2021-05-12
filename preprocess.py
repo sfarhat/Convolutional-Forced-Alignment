@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torchaudio
-from utils import text_to_target, char_map
+from utils import text_transformer 
 
 class LibrispeechCollator(object):
 
@@ -51,7 +51,7 @@ class LibrispeechCollator(object):
             inputs.append(features)
             input_lengths.append(features.shape[0]) # some examples online divide the shape by 2, why?
 
-            target = text_to_target(transcript.lower(), char_map)
+            target = text_transformer.text_to_target(transcript.lower())
             targets.append(target)
             target_lengths.append(len(target))
 

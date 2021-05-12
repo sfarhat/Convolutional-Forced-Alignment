@@ -3,67 +3,78 @@ import torch.nn as nn
 from config import CHECKPOINT_DIR_NAME
 import os
 
-# TODO: figure out how to modularize this nicely
-char_map_str = """
- <SPACE> 1
- a 2
- b 3
- c 4
- d 5
- e 6
- f 7
- g 8
- h 9
- i 10
- j 11
- k 12
- l 13
- m 14
- n 15
- o 16
- p 17
- q 18
- r 19
- s 20
- t 21
- u 22
- v 23
- w 24
- x 25
- y 26
- z 27
- ' 28
- """
+class TextTransformer:
+    """Handles all transformations bewteen text strings and integer equivalents"""
 
-def create_char_map(char_map_str):
-    char_map, idx_map = {}, {}
-    for line in char_map_str.strip().split("\n"):
-        c, num = line.split()
-        char_map[c] = int(num)
-        idx_map[int(num)] = c
-    return char_map, idx_map
+    def __init__(self):
 
-char_map, idx_map = create_char_map(char_map_str)
+        # index 0 is reserved for blank character in CTC
+        self.char_map_str = """
+        <SPACE> 1
+        a 2
+        b 3
+        c 4
+        d 5
+        e 6
+        f 7
+        g 8
+        h 9
+        i 10
+        j 11
+        k 12
+        l 13
+        m 14
+        n 15
+        o 16
+        p 17
+        q 18
+        r 19
+        s 20
+        t 21
+        u 22
+        v 23
+        w 24
+        x 25
+        y 26
+        z 27
+        ' 28
+        """
+        self.char_map, self.idx_map = self.create_char_map() 
 
-def text_to_target(text, char_map):
-    target = []
-    for c in text:
-        if c == " ":
-            target.append(char_map["<SPACE>"])
-        else:
-            target.append(char_map[c])
-    return torch.Tensor(target)
+    def create_char_map(self):
+        """Creates char <-> int mappings"""
 
-def target_to_text(target):
+        char_map, idx_map = {}, {}
+        for line in self.char_map_str.strip().split("\n"):
+            c, num = line.split()
+            char_map[c] = int(num)
+            idx_map[int(num)] = c
+        return char_map, idx_map
 
-    text = ""
-    for idx in target:
-        idx = idx.item()
-        if idx == 1:
-            text += " "
-        else:
-            text += idx_map[idx]
-    return text
+    def text_to_target(self, text):
+        """Converts string to integer Tensor"""
+
+        target = []
+        for c in text:
+            if c == " ":
+                target.append(self.char_map["<SPACE>"])
+            else:
+                target.append(self.char_map[c])
+        return torch.Tensor(target)
+
+    def target_to_text(self, target):
+        """Converts integer array to string"""
+        
+        text = ""
+        for idx in target:
+            idx = int(idx)
+            if idx == 1:
+                text += " "
+            else:
+                text += self.idx_map[idx]
+        return text
+
+text_transformer = TextTransformer()
 
 def weights_init_unif(module, a, b):
     """

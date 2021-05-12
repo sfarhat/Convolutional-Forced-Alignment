@@ -1,5 +1,5 @@
 import torch
-from utils import target_to_text
+from utils import text_transformer
 
 def test(model, test_loader, criterion, device):
     """
@@ -24,22 +24,24 @@ def test(model, test_loader, criterion, device):
             # TODO: Beam search decoding algo instead of greedy
             # Transpose back so that we can iterate over batch dimension
             output = output.transpose(0, 1)
-            for log_probs, target_len in zip(output, target_lenghs):
-                guessed_target = greedy_decode(torch.argmax(log_probs, dim=1), target_len)
+            for log_probs, true_target, target_len in zip(output, targets, target_lengths):
+                guessed_target = greedy_decode(log_probs)
+                print('Guessed transcript: ' + guessed_target)
+                print('True transcript: ' + text_transformer.target_to_text(true_target[:target_len]))
+                print('-------------------------------')
 
-def greedy_decode(char_indices, target_len):
+def greedy_decode(log_probs):
 
+    char_indices = torch.argmax(log_probs, dim=1)
     transcript = []
-    blank_seen = False
+    blank_label = 0
     prev = None
-    for idx in range(target_len):
-        char_idx = char_indices[idx]
-        if char_idx == prev and not blank_seen:
-           continue
-        elif char_idx == 0:
-            blank_seen = True
-        else:
-            transcript.append(char_idx)
-            blank_seen = False
 
-    return target_to_text(transcript)
+    for idx in range(len(char_indices)):
+        char = char_indices[idx].item()
+        if char != blank_label:
+            if char != prev:
+                transcript.append(char)
+        prev = char
+
+    return text_transformer.target_to_text(transcript)
