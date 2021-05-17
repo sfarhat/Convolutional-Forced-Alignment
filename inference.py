@@ -1,5 +1,7 @@
 import torch
 from utils import text_transformer
+from ctcdecode import CTCBeamDecoder
+
 
 def test(model, test_loader, criterion, device):
     """
@@ -25,10 +27,39 @@ def test(model, test_loader, criterion, device):
             # Transpose back so that we can iterate over batch dimension
             output = output.transpose(0, 1)
             for log_probs, true_target, target_len in zip(output, targets, target_lengths):
-                guessed_target = greedy_decode(log_probs)
+                # guessed_target = greedy_decode(log_probs)
+                guessed_target = beam_search_decode(log_probs)
                 print('Guessed transcript: ' + guessed_target)
                 print('True transcript: ' + text_transformer.target_to_text(true_target[:target_len]))
                 print('-------------------------------')
+
+def beam_search_decode(log_probs):
+
+    # Using this ctc decoder: https://github.com/parlance/ctcdecode
+    # Labels come from order specified in utils.py, _ represents blank
+    labels = list("_ abcdefghijklmnopqrstuvwxyz'")
+
+    # TODO: path to KenLM, alpha and beta values
+    decoder = CTCBeamDecoder(
+        labels,
+        model_path=None,
+        alpha=0,
+        beta=0,
+        cutoff_top_n=40,
+        cutoff_prob=1.0,
+        beam_width=100,
+        num_processes=16,
+        blank_id=0,
+        log_probs_input=True
+    )
+
+    # input to decoder needs to be of shape BATCHSIZE x N_TIMESTEPS x N_LABELS
+    # Currently doing single samples, so unsqueeze to create batch of 1
+    beam_results, beam_scores, timesteps, out_lens = decoder.decode(log_probs.unsqueeze(dim=0))
+    # beam_results is of shape (num_batches, num_beams, time), so to get top beam, index [0][0]
+    # cut it off by the appropriate length out_lens with same index
+    return text_transformer.target_to_text(beam_results[0][0][:out_lens[0][0]])
+
 
 def greedy_decode(log_probs):
 

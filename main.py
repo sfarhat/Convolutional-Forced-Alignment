@@ -21,12 +21,12 @@ def main():
     print(device)
 
     train_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="train-clean-100", download=True)
-    # dev_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="dev-clean", download=True)
+    dev_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="dev-clean", download=True)
     test_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="test-clean", download=True)
 
     collator = LibrispeechCollator(hparams["n_mels"])
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=hparams["batch_size"], shuffle=True, collate_fn=collator, pin_memory=use_cuda)
-    # dev_loader = torch.utils.data.DataLoader(dev_dataset, batch_size=hparams["batch_size"], shuffle=True, collate_fn=preprocess, pin_memory=use_cuda)
+    dev_loader = torch.utils.data.DataLoader(dev_dataset, batch_size=hparams["batch_size"], shuffle=True, collate_fn=collator, pin_memory=use_cuda)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=hparams["batch_size"], shuffle=False, collate_fn=collator, pin_memory=use_cuda)
 
     # 1 channel input from feature spectrogram, 29 dim output from char_map + blank for CTC, 120 features
@@ -56,9 +56,7 @@ def main():
             train(net, train_loader, criterion, optimizer, epoch, device)
             save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["ADAM_lr"])
     else: 
-        test(net, test_loader, criterion, device)
-
-    # TODO: Where/when to do dev set?
+        test(net, dev_loader, criterion, device)
 
     
 
