@@ -1,107 +1,116 @@
+import torch
 from torch.utils.data import Dataset
 import torchaudio
 from config import DATASET_DIR
 import os
 
-# 61 labels training (some do 48), 39 labels for testing
-timit_training_labels = ['iy', 'ih', 'eh', 'ey', 'ae', 'aa', 'aw',
-                        'ay', 'ah', 'ao', 'oy', 'ow', 'uh', 'uw', 'ux',
-                        'er', 'ax', 'ix', 'axr', 'ax-h', 'jh', 'ch', 'b',
-                        'd', 'g', 'p', 't', 'k', 'dx', 's', 'sh', 'z',
-                        'zh', 'f', 'th', 'v', 'dh', 'm', 'n', 'ng',
-                        'em', 'nx', 'en', 'eng', 'l', 'r', 'w', 'y', 'hh',
-                        'hv', 'el', 'bcl', 'gcl', 'pcl', 'tcl', 'kcl',
-                        'q', 'pau', 'epi', 'h#']
 
-# aa, ao
-# ah, ax, ax-h
-# er, axr
-# hh, hv
-# ih, ix
-# l, el
-# m, em
-# n, en, nx
-# ng, eng
-# sh, zh
-# uw, ux
-# pcl, tcl, kcl, bcl, dcl, gcl, h#, pau, epi
-# q	
-# become mapped to
-# aa
-# ah
-# er
-# hh
-# ih
-# l
-# m
-# n
-# ng
-# sh
-# uw
-# sil
-# -
+class PhonemeTransformer:
 
-# aa	aa	aa
-# ae	ae	ae
-# ah	ah	ah
-# ao	ao	aa
-# aw	aw	aw
-# ax	ax	ah
-# ax-h	ax	ah
-# axr	er	er
-# ay	ay	ay
-# b	b	b
-# bcl	vcl	sil
-# ch	ch	ch
-# d	d	d
-# dcl	vcl	sil
-# dh	dh	dh
-# dx	dx	dx
-# eh	eh	eh
-# el	el	l
-# em	m	m
-# en	en	n
-# eng	ng	ng
-# epi	epi	sil
-# er	er	er
-# ey	ey	ey
-# f	f	f
-# g	g	g
-# gcl	vcl	sil
-# h#	sil	sil
-# hh	hh	hh
-# hv	hh	hh
-# ih	ih	ih
-# ix	ix	ih
-# iy	iy	iy
-# jh	jh	jh
-# k	k	k
-# kcl	cl	sil
-# l	l	l
-# m	m	m
-# n	n	n
-# ng	ng	ng
-# nx	n	n
-# ow	ow	ow
-# oy	oy	oy
-# p	p	p
-# pau	sil	sil
-# pcl	cl	sil
-# q
-# r	r	r
-# s	s	s
-# sh	sh	sh
-# t	t	t
-# tcl	cl	sil
-# th	th	th
-# uh	uh	uh
-# uw	uw	uw
-# ux	uw	uw
-# v	v	v
-# w	w	w
-# y	y	y
-# z	z	z
-# zh	zh	sh
+    def __init__(self):
+        # Map from 61 phonemes to 39 as proposed in (Lee & Hon, 1989)
+        # Added <SPACE> token for custom loss
+        self.phon_map = { 
+            '<SPACE>': '<SPACE>',
+            'aa': 'aa',	           
+            'ae': 'ae', 
+            'ah': 'ah',	
+            'ao': 'aa',
+            'aw': 'aw',	
+            'ax': 'ah',	
+            'ax-h': 'ah',
+            'axr': 'er',
+            'ay': 'ay',	
+            'b': 'b', 	
+            'bcl': 'sil',
+            'ch': 'ch',	
+            'd': 'd', 	
+            'dcl': 'sil',
+            'dh': 'dh',	
+            'dx': 'dx',	
+            'eh': 'eh',	
+            'el': 'l',	
+            'em': 'm',	
+            'en': 'n',	
+            'eng': 'ng',
+            'epi': 'sil',
+            'er': 'er',
+            'ey': 'ey',	
+            'f': 'f',	 
+            'g': 'g', 
+            'gcl': 'sil',
+            'h#': 'sil',	
+            'hh': 'hh',	
+            'hv': 'hh',	
+            'ih': 'ih',	
+            'ix': 'ih',	
+            'iy': 'iy',	
+            'jh': 'jh',	
+            'k': 'k',	 
+            'kcl': 'sil',
+            'l': 'l', 	
+            'm': 'm', 
+            'n': 'n',	
+            'ng': 'ng',	
+            'nx': 'n',	
+            'ow': 'ow',	
+            'oy': 'oy',	
+            'p': 'p', 	
+            'pau': 'sil',
+            'pcl': 'sil',
+            'q': None,
+            'r': 'r', 	
+            's': 's', 	
+            'sh': 'sh',	
+            't': 't', 	
+            'tcl': 'sil',
+            'th': 'th',	
+            'uh': 'uh',	
+            'uw': 'uw',	
+            'ux': 'uw',	
+            'v': 'v', 	
+            'w': 'w', 	
+            'y': 'y', 	
+            'z': 'z', 	
+            'zh': 'sh'	
+        } 
+
+        self.train_phon = ['<SPACE>', 'aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ax-h', 'axr', 'ay', 'b', 'bcl',
+                            'jh', 'k', 'kcl', 'l', 'm', 'n', 'ng', 'nx', 'ow', 'oy', 'p',
+                            'pau', 'pcl', 'q', 'r', 's', 'sh', 't', 'tcl', 'th', 'uh', 'uw',
+                            'ux', 'v', 'w', 'y', 'z', 'zh']
+        self.train_phon_map = {self.train_phon[i]: i for i in range(len(self.train_phon))}
+
+        self.test_phon = ['<SPACE>', 'aa', 'ae', 'ah', 'aw', 'er', 'ay', 'b', 'sil', 'ch', 'd', 'dh', 'dx',
+                            'eh', 'l', 'm', 'n', 'ng', 'ey', 'f', 'g', 'hh', 'ih', 'iy', 'jh',
+                            'k', 'ow', 'oy', 'p', 'r', 's', 'sh', 't', 'th', 'uh', 'uw', 'v',
+                            'w', 'y', 'z']
+        self.test_phon_map = {self.test_phon[i]: i for i in range(len(self.test_phon))}
+
+    def phone_to_int(self, phonemes, collapse=True):
+        """Converts phonemes to integer Tensor"""
+
+        target = []
+
+        if collapse:
+            phonemes = self.collapse_phones(phonemes)
+            for p in phonemes:
+                target.append(self.test_phon_map[p])
+        else:
+            for p in phonemes:
+                target.append(self.train_phon_map[p])
+
+        return torch.Tensor(target)
+
+    def collapse_phones(self, phonemes):
+
+        collapsed = []
+        for p in phonemes:
+            if p == 'q':
+                continue
+            collapsed.append(self.phon_map[p])
+
+        return collapsed
 
 class TIMITDataset(Dataset):
 

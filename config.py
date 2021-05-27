@@ -12,5 +12,6 @@ hparams = {
     "activation": "prelu",
     "n_mels": 40,
     "start_epoch": 50,
-    "train": False 
+    "train": False,
+    "dataset": 'TIMIT'
 }

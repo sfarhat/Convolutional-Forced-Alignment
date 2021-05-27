@@ -1,13 +1,14 @@
 import torch
 import torch.nn as nn
 import torchaudio
-# from torch.utils.tensorboard import SummaryWriter
+import os
 from config import hparams, DATASET_DIR
-from preprocess import LibrispeechCollator
-from utils import weights_init_unif, load_from_checkpoint, save_checkpoint
-from model import ASR_1
+from preprocess import LibrispeechCollator, TIMITCollator
+from utils import weights_init_unif, load_from_checkpoint, save_checkpoint, TextTransformer
+from model import ASR_1 
 from training import train
 from inference import test
+from timit_utils import TIMITDataset, PhonemeTransformer
 
 def main():
 
@@ -20,19 +21,39 @@ def main():
     device = torch.device("cuda" if use_cuda else "cpu")
     print(device)
 
-    train_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="train-clean-100", download=True)
-    dev_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="dev-clean", download=True)
-    test_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="test-clean", download=True)
+    if hparams["dataset"] == 'LibriSpeech':
+        train_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="train-clean-100", download=True)
+        dev_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="dev-clean", download=True)
+        test_dataset = torchaudio.datasets.LIBRISPEECH(DATASET_DIR, url="test-clean", download=True)
+        transformer = TextTransformer()
+        collator = LibrispeechCollator(hparams["n_mels"], transformer)
 
-    collator = LibrispeechCollator(hparams["n_mels"])
+    if hparams["dataset"] == 'TIMIT':
+        train_dataset = TIMITDataset(os.path.join(DATASET_DIR, 'timit', 'data', 'TRAIN'))
+        test_dataset = TIMITDataset(os.path.join(DATASET_DIR, 'timit', 'data', 'TEST'))
+        transformer = PhonemeTransformer()
+        collator = TIMITCollator(hparams['n_mels'], transformer)
+
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=hparams["batch_size"], shuffle=True, collate_fn=collator, pin_memory=use_cuda)
-    dev_loader = torch.utils.data.DataLoader(dev_dataset, batch_size=hparams["batch_size"], shuffle=True, collate_fn=collator, pin_memory=use_cuda)
+    # dev_loader = torch.utils.data.DataLoader(dev_dataset, batch_size=hparams["batch_size"], shuffle=True, collate_fn=collator, pin_memory=use_cuda)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=hparams["batch_size"], shuffle=False, collate_fn=collator, pin_memory=use_cuda)
 
     # 1 channel input from feature spectrogram, 29 dim output from char_map + blank for CTC, 120 features
     net = ASR_1(in_dim=1, num_classes=29, num_features=120, activation=hparams["activation"], dropout=0.3)
     net.to(device)
     weights_init_unif(net, hparams["weights_init_a"], hparams["weights_init_b"])
+
+    # Save last layer activations for GRAD-CAM
+    activations = []
+    def get_activation(model, input, output):
+        """Forward hook that returns output at chosen layer of network"""
+        activations.append(output.detach())
+    net.cnn_layers[-1].register_forward_hook(get_activation)
+
+    gradients = []
+    def get_gradients(module, grad_in, grad_out):
+        gradients.append(grad_out[0].detach())
+    net.cnn_layers[-1].register_backward_hook(get_gradients)
 
     # ADAM loss w/ lr=10e-4, batch size 20, initial weights initialized uniformly from [-0.05, 0.05], dropout w/ p=0.3 used in all layers except in and out
     # for fine tuning: SGD w/ lr 10e-5, l2 penalty w/ coeff=1e-5
@@ -41,9 +62,6 @@ def main():
     # TODO: consider using ADAMW for LR decay
     optimizer = torch.optim.Adam(net.parameters(), lr=hparams["ADAM_lr"])
     finetune_optimizer = torch.optim.SGD(net.parameters(), lr=hparams["SGD_lr"], weight_decay=hparams["SGD_l2_penalty"])
-
-    # writer = SummaryWriter()
-    # writer.add_graph(net)
 
     if hparams["start_epoch"] > 0: 
         net, optimizer = load_from_checkpoint(net, optimizer, hparams["activation"], hparams["ADAM_lr"], hparams["start_epoch"], device)
@@ -56,9 +74,7 @@ def main():
             train(net, train_loader, criterion, optimizer, epoch, device)
             save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["ADAM_lr"])
     else: 
-        test(net, dev_loader, criterion, device)
-
-    
+        test(net, test_loader, criterion, device, transformer)
 
 if __name__ == "__main__":
     main()

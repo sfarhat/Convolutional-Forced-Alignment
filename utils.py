@@ -51,7 +51,7 @@ class TextTransformer:
             idx_map[int(num)] = c
         return char_map, idx_map
 
-    def text_to_target(self, text):
+    def char_to_int(self, text):
         """Converts string to integer Tensor"""
 
         target = []
@@ -73,8 +73,6 @@ class TextTransformer:
             else:
                 text += self.idx_map[idx]
         return text
-
-text_transformer = TextTransformer()
 
 def weights_init_unif(module, a, b):
     """
