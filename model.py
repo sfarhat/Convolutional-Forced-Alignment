@@ -114,7 +114,7 @@ class ASR_1(nn.Module):
         The model has 128 feature maps in the first four convolutional layers and 256 feature maps in the remaining six convolutional layers. 
         Each fully-connected layer has 1024 units. Maxout with 2 piece-wise linear functions is used as the activation function.
 
-        We differ from the given model by using ReLU instead of Maxout for the activation function. This is simply due to memory constraints on 
+        We differ from the given model by using PReLU instead of Maxout for the activation function. This is simply due to memory constraints on 
         available hardware. 
         """ 
 
@@ -128,7 +128,7 @@ class ASR_1(nn.Module):
             # https://discuss.pytorch.org/t/why-add-an-extra-dimension-to-convolution-layer-weights/86954/2
 
             self.cnn_layers = nn.Sequential(
-                            Conv_Layer(in_channels=in_dim, out_channels=128, kernel=(3,5), activation="relu", dropout=0, pool=(3,1)),
+                            Conv_Layer(in_channels=in_dim, out_channels=128, kernel=(3,5), activation=activation, dropout=0, pool=(3,1)),
                             Conv_Layer(128, 128, (3,5), activation, dropout),
                             Conv_Layer(128, 128, (3,5), activation, dropout),
                             Conv_Layer(128, 128, (3,5), activation, dropout),
@@ -163,4 +163,3 @@ class ASR_1(nn.Module):
 
             x = F.log_softmax(x, dim=2)
             return x
-            

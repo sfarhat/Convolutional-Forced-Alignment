@@ -108,10 +108,10 @@ def load_from_checkpoint(model, optimizer, activation, lr, epoch, device):
         epoch = checkpoint['epoch']
         return model, optimizer
 
-def save_checkpoint(model, optimizer, epoch, activation, lr):
+def save_checkpoint(model, optimizer, epoch, activation, lr, dataset):
 
-    dirname = f"activation-{activation}_LR-{lr}"
-    filename = f"activation-{activation}_LR-{lr}_epoch-{epoch}.pt"
+    dirname = f"{dataset}-activation-{activation}_LR-{lr}"
+    filename = f"{dataset}-activation-{activation}_LR-{lr}_epoch-{epoch}.pt"
 
     checkpoint_dir = os.path.join(os.getcwd(), CHECKPOINT_DIR_NAME, dirname)
     save_path = os.path.join(checkpoint_dir, filename)

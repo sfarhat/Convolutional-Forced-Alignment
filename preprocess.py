@@ -79,28 +79,29 @@ class TIMITCollator(object):
     def preprocess_timit(self, dataset):
 
         inputs = [] 
+        input_lengths = []
         targets = [] 
+        target_lengths = []
 
         for sample in dataset:
             waveform, phonemes, words = sample['audio'], sample['phonemes'], sample['words']
-            # Transpose to move time dimension into proper padding position for later
             features = features_from_waveform(waveform, self.n_mels).transpose(0, 1)
-            # Adding 'spectrograms' of shape (time x features)
             inputs.append(features)
 
-            target = create_timit_target(words, phonemes)
-            targets.append(self.transformer.phone_to_int(target, collapse=True))
+            input_lengths.append(features.shape[0])
 
-        # Each 'spectrogram' has different lengths in time dimension, so we need to pad them to be uniform within batch
-        # pad_sequence requires padding-needing dimension to be 0th dimension and all trailing dims to be the same 
-        # This transformation doesn't affect the model architecture since we are only flattening/connecting the feature dimension, not the time one (nn.Linear allows for this flexibility)
-        # Need to add back (unsqueeze) channel dimension and undo 'padding ordering' to get shape (batch, channel, features, time)
+            target = create_timit_target(words, phonemes)
+            converted_target = self.transformer.phone_to_int(target, collapse=True)
+            targets.append(converted_target)
+            
+            target_lengths.append(len(converted_target))
+
         inputs = nn.utils.rnn.pad_sequence(inputs, batch_first=True).unsqueeze(1).transpose(2, 3) 
 
-        # This will pad with 0, which represents the blank, but this shouldn't be a problem since we're providing the target_length of the unpadded target
         targets = nn.utils.rnn.pad_sequence(targets, batch_first=True)
 
-        return (inputs, targets)
+        # Only returning input_lengths to keep training code general and clean, improve when you can...
+        return (inputs, input_lengths, targets, target_lengths)
 
 def features_from_waveform(waveform, n_mels):
     """Generate features from an audio waveform.

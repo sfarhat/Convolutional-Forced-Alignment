@@ -42,9 +42,5 @@ def train(model, train_loader, criterion, optimizer, epoch, device):
         optimizer.step() 
 
         if batch_num % 10 == 0 or batch_num == data_len:
-            # writer.add_scalar("Loss/train", loss.item(), epoch * data_len + batch_num * len(inputs))
-            # writer.flush()     
-
             # len(inputs) is batch size, data_len is total size of samples in dataset, len(train_loader) is number of batches
-
             print(f"Train Epoch: {epoch} [{(batch_num+1) * len(inputs)}/{data_len} ({100. * (batch_num+1) / len(train_loader):.2f}%)]\tLoss: {loss.item():.6f}")

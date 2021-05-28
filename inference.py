@@ -22,7 +22,6 @@ def test(model, test_loader, criterion, device, transformer):
             output = output.transpose(0, 1)
             loss = criterion(output, targets, input_lengths, target_lengths)
             
-            # TODO: Beam search decoding algo instead of greedy
             # Transpose back so that we can iterate over batch dimension
             output = output.transpose(0, 1)
             for log_probs, true_target, target_len in zip(output, targets, target_lengths):
