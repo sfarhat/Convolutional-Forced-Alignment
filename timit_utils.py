@@ -179,14 +179,14 @@ class TIMITDataset(Dataset):
             path (String): Path to the desired TIMIT dataset (train/test) 
         """
         
-        paths = []
+        paths = set()
         for root, dirs, files in os.walk(path):
             for fname in files:
                 sample_id = fname.split('.')[0]
                 if 'SA' in sample_id:
                     continue
                 fpath = os.path.join(root, sample_id)
-                paths.append(fpath)
+                paths.add(fpath)
                 
         return paths
 
