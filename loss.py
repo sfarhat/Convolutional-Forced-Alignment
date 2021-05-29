@@ -6,7 +6,8 @@ class CollapsedCTCLoss(object):
         pass
 
     def __call__(self, output, targets, input_lengths, target_lengths):
-        # Output is shape (batch size, time, num_classes)
+        # Output is shape (time, batch_size, num_classes), inherited from CTC
+        output = output.transpose(0, 1)
         # target_lengths is shape (batch size)
         # TODO: keeping input lengths for generalizability, change this when you have the chance
 
