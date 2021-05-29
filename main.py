@@ -48,17 +48,15 @@ def main():
     net.to(device)
     weights_init_unif(net, hparams["weights_init_a"], hparams["weights_init_b"])
 
-    # Save last layer activations for GRAD-CAM
+    # Save last layer activations for GRAD-CAM, only needed for test-time
     activations = []
     def get_activation(model, input, output):
         """Forward hook that returns output at chosen layer of network"""
         activations.append(output.detach())
-    net.cnn_layers[-1].register_forward_hook(get_activation)
 
     gradients = []
     def get_gradients(module, grad_in, grad_out):
         gradients.append(grad_out[0].detach())
-    net.cnn_layers[-1].register_backward_hook(get_gradients)
 
     # ADAM loss w/ lr=10e-4, batch size 20, initial weights initialized uniformly from [-0.05, 0.05], dropout w/ p=0.3 used in all layers except in and out
     # for fine tuning: SGD w/ lr 10e-5, l2 penalty w/ coeff=1e-5
@@ -78,6 +76,8 @@ def main():
             train(net, train_loader, criterion, optimizer, epoch, device)
             save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["ADAM_lr"], hparams["dataset"])
     else: 
+        net.cnn_layers[-1].register_forward_hook(get_activation)
+        net.cnn_layers[-1].register_backward_hook(get_gradients)
         test(net, test_loader, criterion, device, transformer)
 
 if __name__ == "__main__":
