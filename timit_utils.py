@@ -188,7 +188,7 @@ class TIMITDataset(Dataset):
                 fpath = os.path.join(root, sample_id)
                 paths.add(fpath)
                 
-        return paths
+        return list(paths)
 
 def create_timit_target(words, phonemes):
     """
