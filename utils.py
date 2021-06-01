@@ -87,11 +87,11 @@ def weights_init_unif(module, a, b):
     for p in module.parameters():
         nn.init.uniform_(p.data, a=a, b=b)
 
-def load_from_checkpoint(model, optimizer, activation, lr, epoch, device):
+def load_from_checkpoint(model, optimizer, activation, lr, epoch, device, dataset):
 
     # To start from epoch e, we need to load in a pretrained model up to epoch e-1
 
-    checkpoint_name = f"activation-{activation}_LR-{lr}_epoch-{epoch-1}.pt"
+    checkpoint_name = f"{dataset}-activation-{activation}_LR-{lr}_epoch-{epoch-1}.pt"
 
     path = None
     for root, dirs, files in os.walk(os.path.join(os.getcwd(), CHECKPOINT_DIR_NAME)):

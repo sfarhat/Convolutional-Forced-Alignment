@@ -29,7 +29,7 @@ def main():
         transformer = TextTransformer()
         collator = LibrispeechCollator(hparams["n_mels"], transformer)
         # 1 channel input from feature spectrogram, 29 dim output from char_map + blank for CTC, 120 (40 mels + deltas + delta-deltas) features
-        net = ASR_1(in_dim=1, num_classes=transformer.char_map+1, num_features=hparams["n_mels"]*3, activation=hparams["activation"], dropout=0.3)
+        net = ASR_1(in_dim=1, num_classes=len(transformer.char_map)+1, num_features=hparams["n_mels"]*3, activation=hparams["activation"], dropout=0.3)
         criterion = nn.CTCLoss().to(device)
     elif hparams["dataset"] == 'TIMIT':
         train_dataset = TIMITDataset(os.path.join(DATASET_DIR, 'timit', 'data', 'TRAIN'))
@@ -66,7 +66,7 @@ def main():
     finetune_optimizer = torch.optim.SGD(net.parameters(), lr=hparams["SGD_lr"], weight_decay=hparams["SGD_l2_penalty"])
 
     if hparams["start_epoch"] > 0: 
-        net, optimizer = load_from_checkpoint(net, optimizer, hparams["activation"], hparams["ADAM_lr"], hparams["start_epoch"], device)
+        net, optimizer = load_from_checkpoint(net, optimizer, hparams["activation"], hparams["ADAM_lr"], hparams["start_epoch"], device, hparams["dataset"])
         start_epoch = hparams["start_epoch"]
     else:
         start_epoch = 0
