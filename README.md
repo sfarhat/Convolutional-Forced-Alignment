@@ -67,7 +67,34 @@ What can we do from here?
 
 (Fun information: it took around 30 hours to train the whole thing. My room got very hot and the sound of a GPU fan running isn't really the greatest white noise for falling asleep.)
 
+**5/19**
+
+Given a semi-working model, I began working on implementing GRAD-CAM on it, however things turned sour quickly. First, I had to acknowledge the main problem: for a CNN-based ASR model, the output is a matrix of shape `(# labels, time)`, so a single "class label" that CAM likes to use is not well-defined to take the gradient with respect to. Each column of this output matrix specifies a separate distribution over the labels, and the output transcript is not easily interpretabable from this: it relies on the sum of all the probabilities of all possible alignments that correspond to the same transcript defined by CTC's assumptions.
+
+This realization shed light on the larger problem with CTC. It's many-to-one (surjective) "collapsing" function (defined as beta in the original paper) is the main cause of 2 of CTC's weaknesses: 
+
+1. It's huge reliance on a good decoding algorithm and language model to get a reasonable error rate
+2. Bad interpretability
+
+For example, consider the output transcript "cat" given an input sequence of length 5. There are 28 valid alignments for this that CTC will treat equally. But are they equal? Do `cccat` and `cattt` encode the same information? What about `--cat` vs `cat--`? The bigger question is: **what makes a good alignment?**
+
+So, I propose 4 improvements:
+
+1. Remove the blank symbol. I understand that this is, arguably, the main novelty of CTC, however its removal decreases the space of valid alignments. However, we still need a heuristic for an ideal alignment given that there are still multiple valid ones even without the blank symbol. All of these can be categorized by having repeat labels, whether they are intentional (feel) or not (catt). This motivates Proposal 2.
+
+2. Use phonemes instead of characters. It removes the complexity of spelling that led to reliance on a decoder/LM. In addition, according to [Zhang et. al (2017)](https://arxiv.org/pdf/1701.02720.pdf), CNN-based models for ASR work better on phonetic information. To do this, we can use the TIMIT dataset. We also use the assumption that no English word has 2 neighbor repeat phonemes, which forces a 1-to-1 conversion from an alignment to the transcript. Why? Given that we are using the CTC method of collapsing alignments by 1) collapsing repeats then 2) removing blanks, repeats no longer exist via this Proposal, and blanks no longer exist by Proposal 1. So no collapsing is even necessary! To separate words (remember the original idea here is to look at how the model operates on each word), we will add a `<SPACE>` label in preprocessing using the time-annotations TIMIT provides.
+
+3. It's great that we've removed the need for collapsing altogether, but won't the model have to do that anyway given the output dimensions? Correct. So, let's reduce the dimensionality of the output sequence from `(num_labels, time)` to `(num_labels, transcript length)`.
+
+4. The caveat to Proposal 3 is that across batches, the transcript length differs, so instead of doing this in the model itself, it will be done in the loss function. The new loss function will use an Adaptive Average (or Max) Pooling for each sample within the batch to reduce the dimensions, then compute the Negative Log Likelihood of the singular sequence that is "correct".
 
 
+Basically, all we are doing is forcibly decreasing the space of valid alignments, by only allowing 1 to be valid. That is, the actual transcript itself. No decoding necessary (except for a phonemes-to-word model). For example instead of `cat`'s 28 valid alignments with CTC in a length 5 input sequence (e.g. `c-a-t, caatt, -c-at`, etc), there is only 1: `k ae t`.
 
+**5/29**
 
+I integrated TIMIT, preprocessed to create the input/outputs desired, and created the custom loss function that I've named "Collapsed CTC". 
+
+Did it work? After 20 epochs, it did **not**. The loss jumped around within the same range, showing no signs of decreasing. Maybe it needs hyperparameter tuning? Maybe I'm asking for too much from the model. For the sake of clarity, I did not follow the standard practice on training on 61 training labels then moving to the 39 test labels. Instead, I just used the 39 labels for training as well.
+
+Perhaps I should return to what makes an ideal alignment and create a better objective loss function...
