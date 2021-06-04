@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from ctcdecode import CTCBeamDecoder
 
 
@@ -26,7 +27,8 @@ def test(model, test_loader, criterion, device, transformer):
             output = output.transpose(0, 1)
             for log_probs, true_target, target_len in zip(output, targets, target_lengths):
                 # guessed_target = greedy_decode(log_probs, transformer)
-                guessed_target = beam_search_decode(log_probs, transformer)
+                guessed_target = timit_decode(log_probs, target_len, transformer)
+                # guessed_target = beam_search_decode(log_probs, transformer)
                 print('Guessed transcript: ' + guessed_target)
                 print('True transcript: ' + transformer.target_to_text(true_target[:target_len]))
                 print('-------------------------------')
@@ -75,3 +77,9 @@ def greedy_decode(log_probs, transformer):
 
     return transformer.target_to_text(transcript)
 
+
+def timit_decode(log_probs, target_len, transformer):
+
+    collapsed_probs = nn.AdaptiveAvgPool2d((target_len, None))(log_probs.unsqueeze(0)).squeeze()
+    phon_indices = torch.argmax(collapsed_probs, dim=1)
+    return phon_indices

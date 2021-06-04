@@ -12,6 +12,7 @@ class CollapsedCTCLoss(object):
         # TODO: keeping input lengths for generalizability, change this when you have the chance
 
         loss = 0
+        N = 0
         for log_probs, target, target_len in zip(output, targets, target_lengths):
             # pooling layer requires batch dimension, but we don't
             # TODO: try max pooling
@@ -21,6 +22,7 @@ class CollapsedCTCLoss(object):
             for i in range(len(collapsed_probs)):
                 prob_t = collapsed_probs[i]
                 loss -= prob_t[int(target[i])]
+                N += 1
 
         # Normalize loss by batch size
-        return loss / output.shape[0]
+        return loss / N
