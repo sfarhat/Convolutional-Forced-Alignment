@@ -34,9 +34,9 @@ def main():
     elif hparams["dataset"] == 'TIMIT':
         train_dataset = TIMITDataset(os.path.join(DATASET_DIR, 'timit', 'data', 'TRAIN'))
         test_dataset = TIMITDataset(os.path.join(DATASET_DIR, 'timit', 'data', 'TEST'))
-        transformer = PhonemeTransformer()
+        transformer = PhonemeTransformer(collapse=True)
         collator = TIMITCollator(hparams['n_mels'], transformer)
-        net = ASR_1(in_dim=1, num_classes=len(transformer.test_phon), num_features=hparams["n_mels"]*3, activation=hparams["activation"], dropout=0.3)
+        net = ASR_1(in_dim=1, num_classes=len(transformer.phon_map), num_features=hparams["n_mels"]*3, activation=hparams["activation"], dropout=0.3)
         criterion = CollapsedCTCLoss()
     else:
         raise Exception("Not a valid dataset. Please choose between 'Librispeech' or 'TIMIT'.")

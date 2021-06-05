@@ -1,13 +1,17 @@
+from typing import Text
 import torch
 import torch.nn as nn
 import torchaudio
-from timit_utils import create_timit_target
+from timit_utils import create_timit_target, PhonemeTransformer
+from utils import TextTransformer
 
 class LibrispeechCollator(object):
 
     def __init__(self, n_mels, transformer):
         self.n_mels = n_mels
         self.transformer = transformer
+        if not isinstance(self.transformer, TextTransformer):
+            raise TypeError("Librispeech must use a TextTransformer, but it was given a " + type(self.transformer))
 
     def __call__(self, batch):
         return self.preprocess_librispeech(batch)
@@ -52,6 +56,7 @@ class LibrispeechCollator(object):
             inputs.append(features)
             input_lengths.append(features.shape[0]) # some examples online divide the shape by 2, why?
 
+            # TODO: change this to "to_int()" for consistency between tranformers?
             target = self.transformer.char_to_int(transcript.lower())
             targets.append(target)
             target_lengths.append(len(target))
@@ -72,6 +77,8 @@ class TIMITCollator(object):
     def __init__(self, n_mels, transformer):
         self.n_mels = n_mels
         self.transformer = transformer
+        if not isinstance(self.transformer, PhonemeTransformer):
+            raise TypeError("TIMIT must use a PhonemeTransformer, but it was given a " + type(self.transformer))
 
     def __call__(self, batch):
         return self.preprocess_timit(batch)
@@ -90,15 +97,16 @@ class TIMITCollator(object):
 
             input_lengths.append(features.shape[0])
 
-            target = create_timit_target(words, phonemes)
-            converted_target = self.transformer.phone_to_int(target, collapse=True)
+            target = create_timit_target(words, phonemes, waveform)
+            converted_target = self.transformer.phone_to_int(target)
             targets.append(converted_target)
             
             target_lengths.append(len(converted_target))
 
         inputs = nn.utils.rnn.pad_sequence(inputs, batch_first=True).unsqueeze(1).transpose(2, 3) 
 
-        targets = nn.utils.rnn.pad_sequence(targets, batch_first=True)
+        # 0 corresponds to <SPACE>, we want it to be the padding phone h# which is mapped to sil
+        targets = nn.utils.rnn.pad_sequence(targets, batch_first=True, padding_value=self.transformer.blank_idx)
 
         # Only returning input_lengths to keep training code general and clean, improve when you can...
         return (inputs, input_lengths, targets, target_lengths)
@@ -108,15 +116,14 @@ def features_from_waveform(waveform, n_mels):
 
     Raw audio is transformed into 40-dimensional log mel-filter-bank (plus energy term) coefficients with deltas and delta-deltas, which reasults in 123 dimensional features.
     Each dimension is normalized to have zero mean and unit variance over the training set.
-    Basically this is just MFCC but without taking DCT at the end, but for the sake of cleanliness, I'll stick with MFCC for now. 
     TODO: is energy of the raw data or the spectorgram? if former, wouldn't it be the same for every timestep
 
     Args:
         waveform (Tensor): [shape: (channel x time)] Time series data representing spoken input
-        n_mfcc (int): Number of desired MFC coefficients
+        n_mels (int): Number of desired mels 
 
     Returns:
-        input_features_normalized (Tensor): [shape: (features x time)] "Spectrogram" of MFCC, delta, and delta-delta features
+        input_features_normalized (Tensor): [shape: (features x time)] log-mel spectrogram, delta, and delta-delta features
     """
 
     # Waveform has channel first dimension, gives shape (1, ...) which causes shape problems when stacking features
