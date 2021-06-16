@@ -88,7 +88,6 @@ So, I propose 4 improvements:
 
 4. The caveat to Proposal 3 is that across batches, the transcript length differs, so instead of doing this in the model itself, it will be done in the loss function. The new loss function will use an Adaptive Average (or Max) Pooling for each sample within the batch to reduce the dimensions, then compute the Negative Log Likelihood of the singular sequence that is "correct".
 
-
 Basically, all we are doing is forcibly decreasing the space of valid alignments, by only allowing 1 to be valid. That is, the actual transcript itself. No decoding necessary (except for a phonemes-to-word model). For example instead of `cat`'s 28 valid alignments with CTC in a length 5 input sequence (e.g. `c-a-t, caatt, -c-at`, etc), there is only 1: `k ae t`.
 
 **5/29**
@@ -98,3 +97,15 @@ I integrated TIMIT, preprocessed to create the input/outputs desired, and create
 Did it work? After 20 epochs, it did **not**. The loss jumped around within the same range, showing no signs of decreasing. Maybe it needs hyperparameter tuning? Maybe I'm asking for too much from the model. For the sake of clarity, I did not follow the standard practice on training on 61 training labels then moving to the 39 test labels. Instead, I just used the 39 labels for training as well.
 
 Perhaps I should return to what makes an ideal alignment and create a better objective loss function...
+
+**6/15**
+
+Ok, new idea. Instead of forcing this pooling in the time dimension, why don't I use the same resolution as the input for the length of the transcript? CTC used the input lengths, why don't we use them as well? So I won't collapse the phonemes at training, but instead **incorporate the duration of the phoneme**. This speaks directly to the ideal alignment being one which encodes duration of sounds as well. Lucky for me, TIMIT actually provides the duration of each phoneme and word (wow I feel sorry for the soul who had to do that).
+
+An example output transcript would be as follows: given the word `cat` with duration 6, `k` occurs from `{1, 2}`, `ae` from `{3, 5}`, and `t` from `{6}`, the target would be `k k ae ae ae t`. An alignment with meaningful repeats and without blanks. As I did before, we can use the timing for words/phonemes to know which phoneme is part of a new word and insert a `<SPACE>` appropriately.
+
+There is only one small implementation detail of note: the dimension of time provided by TIMIT (waveform time) doesn't match our time dimension for the network input where we use spectrograms (spectrogram time). So, with a little bit of math, I broke down how PyTorch does its STFT, extracted the appropriate parameters and created a mapping between these time dimensions. Using Pytorch default arguments, it moves its STFT window by half the window size each hop, so each time in the waveform time dimension corresponds to 2 times in the spectrogram dimension. This is ok; I will just arbitrarily choose to use the first valid spectrogram time. I'm pretty sure this won't cause any problems. (It would only really be a problem if 2 different phonemes were mapped to the same spectrogram time, but for that to happen a new phoneme would have to be started and stopped in `24 ms`, since the default window size is 400 samples and we're sampling at `16.5 kHz`, and this is highly unlikely.)
+
+Lastly, I've decided to use the full 61 phonemes for training. Honestly, I'm doing this because one phoneme (`q`) is collapsed to `None` for the 39 (which is not a label,  it's just straight up nothing), and that annoyingly messes up the output transcript and its length since I have collapsing done after the new phoneme-style output transcripts are generated.
+
+I'll use the same deep CNN model as before with a slightly modified Negative Log Likelihood Loss. Train for 20 epochs or something... It's also 90 degrees here so training will make my room a true pleasure to be in.
