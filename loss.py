@@ -15,13 +15,13 @@ class CollapsedCTCLoss(object):
         N = 0
         for log_probs, target, target_len in zip(output, targets, target_lengths):
             # pooling layer requires batch dimension, but we don't
-            # TODO: try max pooling
-            collapsed_probs = nn.AdaptiveAvgPool2d((target_len, None))(log_probs.unsqueeze(0)).squeeze()
+            # collapsed_probs = nn.AdaptiveAvgPool2d((target_len, None))(log_probs.unsqueeze(0)).squeeze()
+            # log_probs is padded within batch, so use target_len
 
             # Since log softmax in model, already doing Log-Likelihood, just subtract probs to get NLL
-            for i in range(len(collapsed_probs)):
-                prob_t = collapsed_probs[i]
-                loss -= prob_t[int(target[i])]
+            for t in range(target_len):
+                prob_t = log_probs[t]
+                loss -= prob_t[int(target[t])]
                 N += 1
 
         # Normalize loss by batch size

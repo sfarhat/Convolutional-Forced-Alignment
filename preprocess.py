@@ -47,9 +47,11 @@ class LibrispeechCollator(object):
         input_lengths = [] 
         target_lengths = [] 
 
+        mel_spectrogram = torchaudio.transforms.MelSpectrogram(n_mels=self.n_mels)
+
         for waveform, _, transcript, _, _, _ in dataset:
             # Transpose to move time dimension into proper padding position for later
-            features = features_from_waveform(waveform, self.n_mels).transpose(0, 1)
+            features = features_from_waveform(waveform, mel_spectrogram).transpose(0, 1)
             # Debug note: breakpoint here for expression: torch.isnan(features).any()
 
             # Adding 'spectrograms' of shape (time x features)
@@ -90,14 +92,17 @@ class TIMITCollator(object):
         targets = [] 
         target_lengths = []
 
+        # Put this here instead of in features_from_waveform() becuase its parameters needed for transcript creation
+        mel_spectrogram = torchaudio.transforms.MelSpectrogram(n_mels=self.n_mels)
+
         for sample in dataset:
             waveform, phonemes, words = sample['audio'], sample['phonemes'], sample['words']
-            features = features_from_waveform(waveform, self.n_mels).transpose(0, 1)
+            features = features_from_waveform(waveform, mel_spectrogram).transpose(0, 1)
             inputs.append(features)
 
             input_lengths.append(features.shape[0])
 
-            target = create_timit_target(words, phonemes, waveform)
+            target = create_timit_target(words, phonemes, waveform, features.shape[0], mel_spectrogram)
             converted_target = self.transformer.phone_to_int(target)
             targets.append(converted_target)
             
@@ -111,7 +116,7 @@ class TIMITCollator(object):
         # Only returning input_lengths to keep training code general and clean, improve when you can...
         return (inputs, input_lengths, targets, target_lengths)
 
-def features_from_waveform(waveform, n_mels):
+def features_from_waveform(waveform, mel_spectrogram):
     """Generate features from an audio waveform.
 
     Raw audio is transformed into 40-dimensional log mel-filter-bank (plus energy term) coefficients with deltas and delta-deltas, which reasults in 123 dimensional features.
@@ -133,7 +138,7 @@ def features_from_waveform(waveform, n_mels):
     # Takes in audio of shape (..., time) returns (..., n_mels, new_time) where n_mels defaults to 128
     log_offset = 1e-6
     # adding offset because log(0) is nan, led to inputs becoming nan -> nan ouputs -> nan loss
-    log_mel_spectrogram = torch.log(torchaudio.transforms.MelSpectrogram(n_mels=n_mels)(data) + log_offset)
+    log_mel_spectrogram = torch.log(mel_spectrogram(data) + log_offset)
     # Takes in audio of shape (..., time) returns (..., n_mfcc, new_time) where n_mfcc defaults to 40
     # mfcc_features = torchaudio.transforms.MFCC(n_mfcc=n_mfcc, log_mels=True)(data) 
     deltas = torchaudio.functional.compute_deltas(log_mel_spectrogram)

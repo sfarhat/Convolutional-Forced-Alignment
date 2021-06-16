@@ -205,7 +205,7 @@ class TIMITDataset(Dataset):
                 
         return list(paths)
 
-def create_timit_target(words, phonemes, waveform):
+def create_timit_target(words, phonemes, waveform, transcript_len, mel_spectrogram):
     """
     Take phonemes + words and create transcript with <SPACE> separating word-phonemes.
     Example: 'she had' -> ['sh', 'ix', '<SPACE>', 'hv', 'eh', 'dcl']
@@ -220,10 +220,13 @@ def create_timit_target(words, phonemes, waveform):
     Note: overlapping timestamps exist for words (not phonemes) so go with start times of words/phonemes
     """
 
-    waveform_len = waveform.shape[1]
     target = []
+    window_length, hop_length = mel_spectrogram.win_length, mel_spectrogram.hop_length
+
     for i in range(len(words)):
-        curr_word_start, curr_word_end = int(words[i]['start']), int(words[i]['end'])
+
+        curr_word_start = waveform_time_to_spec_time(int(words[i]['start']), transcript_len, hop_length, window_length) 
+        curr_word_end = waveform_time_to_spec_time(int(words[i]['end']), transcript_len, hop_length, window_length)
 
         if curr_word_start > 0 and i == 0:
             # pad with h# before first word (some samples do this already, some don't, but we force them all to omit in preprocessing)
@@ -231,15 +234,18 @@ def create_timit_target(words, phonemes, waveform):
             target.append('<SPACE>')
 
         if i < len(words) - 1:
-            next_word_start = int(words[i+1]['start'])
+            next_word_start = waveform_time_to_spec_time(int(words[i+1]['start']), transcript_len, hop_length, window_length)
         else:
             next_word_start = curr_word_end 
 
+
         for phoneme_details in phonemes:
             # repeatedly add phoneme for duration
-            # TODO: add indicator for new phoneme for future interpretability? Or can do this in post since a timestep corresponding to 
-            # a new phoneme makes no sense intuitively (and is reminscent of the blank in CTC), will also require new label
-            phon_start, phon_end, phoneme = int(phoneme_details['start']), int(phoneme_details['end']), phoneme_details['phoneme']
+            # If we want interpretability for phoneme, we can just look at change in label, no need for extra label like <SPACE>
+            phon_start = waveform_time_to_spec_time(int(phoneme_details['start']), transcript_len, hop_length, window_length)
+            phon_end = waveform_time_to_spec_time(int(phoneme_details['end']), transcript_len, hop_length, window_length)
+            phoneme = phoneme_details['phoneme']
+
             if phon_start >= curr_word_start: 
                 if phon_start < next_word_start:
                     # target.append(phoneme)
@@ -253,6 +259,14 @@ def create_timit_target(words, phonemes, waveform):
         target.append('<SPACE>')
 
     # pad with h# after last word, off-by-1 for added <SPACE> after last word
-    target.extend(['h#'] * (waveform_len - curr_word_end - 1))
+    target.extend(['h#'] * (transcript_len - curr_word_end - 1))
 
     return target
+
+def waveform_time_to_spec_time(t, transcript_len, hop_length, window_length):
+    """Converts time in waveform space to time in spectrogram space given parameters of STFT"""
+
+    for hop in range(transcript_len):
+        if t <= hop * hop_length + window_length and t >= hop * hop_length - window_length:
+            # As a convention, we will use the first hop that covers t, even though multiple may cover it as well
+            return hop
