@@ -80,6 +80,5 @@ def greedy_decode(log_probs, transformer):
 
 def timit_decode(log_probs, target_len, transformer):
 
-    collapsed_probs = nn.AdaptiveAvgPool2d((target_len, None))(log_probs.unsqueeze(0)).squeeze()
-    phon_indices = torch.argmax(collapsed_probs, dim=1)
-    return phon_indices
+    phon_indices = torch.argmax(log_probs, dim=1)
+    return transformer.int_to_phon(phon_indices)
