@@ -29,8 +29,10 @@ def test(model, test_loader, criterion, device, transformer):
                 # guessed_target = greedy_decode(log_probs, transformer)
                 guessed_target = timit_decode(log_probs, target_len, transformer)
                 # guessed_target = beam_search_decode(log_probs, transformer)
-                print('Guessed transcript: ' + guessed_target)
-                print('True transcript: ' + transformer.target_to_text(true_target[:target_len]))
+                print('Guessed transcript: ')
+                print(guessed_target)
+                print('True transcript: ')
+                print(transformer.target_to_text(true_target[:target_len]))
                 print('-------------------------------')
 
 def beam_search_decode(log_probs, transformer):
@@ -81,4 +83,4 @@ def greedy_decode(log_probs, transformer):
 def timit_decode(log_probs, target_len, transformer):
 
     phon_indices = torch.argmax(log_probs, dim=1)
-    return transformer.int_to_phon(phon_indices)
+    return transformer.target_to_text(phon_indices[:target_len])

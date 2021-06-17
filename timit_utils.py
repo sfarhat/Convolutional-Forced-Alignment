@@ -7,8 +7,8 @@ import os
 
 class PhonemeTransformer:
 
-    def __init__(self, collapse):
-        self.collapse = collapse
+    def __init__(self):
+
         # Map from 61 phonemes to 39 as proposed in (Lee & Hon, 1989)
         # Added <SPACE> token for custom loss
         self.collapse_phon_map = { 
@@ -76,37 +76,47 @@ class PhonemeTransformer:
             'zh': 'sh'	
         } 
 
-        if self.collapse:
-            # 39 collapsed phonemes (+1 for space)
-            self.phon = ['<SPACE>', 'aa', 'ae', 'ah', 'aw', 'er', 'ay', 'b', 'sil', 'ch', 'd', 'dh', 'dx',
-                                'eh', 'l', 'm', 'n', 'ng', 'ey', 'f', 'g', 'hh', 'ih', 'iy', 'jh',
-                                'k', 'ow', 'oy', 'p', 'r', 's', 'sh', 't', 'th', 'uh', 'uw', 'v',
-                                'w', 'y', 'z']
-            self.phon_map = {self.phon[i]: i for i in range(len(self.phon))}
-            self.idx_map = {i : self.phon[i] for i in range(len(self.phon_map))}
-        else:
-            # Full 61 phonemes (+1 for <SPACE>)
-            self.phon = ['<SPACE>', 'aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ax-h', 'axr', 'ay', 'b', 'bcl',
-                                'ch', 'd', 'dcl', 'dh', 'dx', 'eh', 'el', 'em', 'en', 'eng', 'epi', 'er', 'ey',
-                                'f', 'g', 'gcl', 'h#', 'hh', 'hv', 'ih', 'ix', 'iy',
-                                'jh', 'k', 'kcl', 'l', 'm', 'n', 'ng', 'nx', 'ow', 'oy', 'p',
-                                'pau', 'pcl', 'q', 'r', 's', 'sh', 't', 'tcl', 'th', 'uh', 'uw',
-                                'ux', 'v', 'w', 'y', 'z', 'zh']
-            self.phon_map = {self.phon[i]: i for i in range(len(self.phon))}
-            self.idx_map = {i : self.phon[i] for i in range(len(self.phon_map))}
+        # if self.collapse:
+        #     # 39 collapsed phonemes (+1 for space)
+        #     self.phon = ['<SPACE>', 'aa', 'ae', 'ah', 'aw', 'er', 'ay', 'b', 'sil', 'ch', 'd', 'dh', 'dx',
+        #                         'eh', 'l', 'm', 'n', 'ng', 'ey', 'f', 'g', 'hh', 'ih', 'iy', 'jh',
+        #                         'k', 'ow', 'oy', 'p', 'r', 's', 'sh', 't', 'th', 'uh', 'uw', 'v',
+        #                         'w', 'y', 'z']
+        #     self.phon_map = {self.phon[i]: i for i in range(len(self.phon))}
+        #     self.idx_map = {i : self.phon[i] for i in range(len(self.phon))}
+        # else:
+
+        # Full 61 phonemes (+1 for <SPACE>)
+        self.phon = ['<SPACE>', 'aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ax-h', 'axr', 'ay', 'b', 'bcl',
+                            'ch', 'd', 'dcl', 'dh', 'dx', 'eh', 'el', 'em', 'en', 'eng', 'epi', 'er', 'ey',
+                            'f', 'g', 'gcl', 'h#', 'hh', 'hv', 'ih', 'ix', 'iy',
+                            'jh', 'k', 'kcl', 'l', 'm', 'n', 'ng', 'nx', 'ow', 'oy', 'p',
+                            'pau', 'pcl', 'q', 'r', 's', 'sh', 't', 'tcl', 'th', 'uh', 'uw',
+                            'ux', 'v', 'w', 'y', 'z', 'zh']
+        self.phon_map = {self.phon[i]: i for i in range(len(self.phon))}
+        self.idx_map = {i : self.phon[i] for i in range(len(self.phon))}
 
     def phone_to_int(self, phonemes):
         """Converts phonemes to integer Tensor"""
 
         target = []
 
-        if self.collapse:
-            phonemes = self.collapse_phones(phonemes)
-
         for p in phonemes:
             target.append(self.phon_map[p])
 
         return torch.Tensor(target)
+
+    def target_to_text(self, target):
+        """Converts target to phoneme transcripts while collapsing 61 phones to 39"""
+
+        transcript = []
+
+        for idx in target:
+            transcript.append(self.idx_map[int(idx)])
+
+        transcript = self.collapse_phones(transcript)
+
+        return transcript
 
     def collapse_phones(self, phonemes):
 
@@ -118,26 +128,13 @@ class PhonemeTransformer:
 
         return collapsed
 
-    def int_to_phon(self, target):
-        """Converts target to phoneme transcripts"""
-
-        transcript = []
-
-        for idx in target:
-            transcript.append(self.idx_map[idx])
-
-        if self.collapse:
-            transcript = self.collapse_phones(transcript)
-
-        return transcript
-
     @property
     def blank_idx(self):
         """Used for pad_sequence in preprocessing"""
-        if self.collapse:
-            return self.phon_map['sil']
-        else:
-            return self.phon_map['h#']
+        # if self.collapse:
+        #     return self.phon_map['sil']
+        # else:
+        return self.phon_map['h#']
 
 class TIMITDataset(Dataset):
 
@@ -279,7 +276,7 @@ def create_timit_target(words, phonemes, waveform, transcript_len, mel_spectrogr
 def waveform_time_to_spec_time(t, transcript_len, mel_spectrogram):
     """Converts time in waveform space to time in spectrogram space given parameters of STFT"""
 
-    hop_length, window_length = mel_spectrogram.hop_length, mel_spectrogram.window_length
+    hop_length, window_length = mel_spectrogram.hop_length, mel_spectrogram.win_length
     for hop in range(transcript_len):
         if t <= hop * hop_length + window_length and t >= hop * hop_length - window_length:
             # As a convention, we will use the first hop that covers t, even though multiple may cover it as well
