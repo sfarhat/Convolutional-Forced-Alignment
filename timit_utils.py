@@ -12,7 +12,7 @@ class PhonemeTransformer:
         # Map from 61 phonemes to 39 as proposed in (Lee & Hon, 1989)
         # Added <SPACE> token for custom loss
         self.collapse_phon_map = { 
-            '<SPACE>': '<SPACE>',
+            # '<SPACE>': '<SPACE>',
             'aa': 'aa',	           
             'ae': 'ae', 
             'ah': 'ah',	
@@ -87,12 +87,14 @@ class PhonemeTransformer:
         # else:
 
         # Full 61 phonemes (+1 for <SPACE>)
-        self.phon = ['<SPACE>', 'aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ax-h', 'axr', 'ay', 'b', 'bcl',
-                            'ch', 'd', 'dcl', 'dh', 'dx', 'eh', 'el', 'em', 'en', 'eng', 'epi', 'er', 'ey',
-                            'f', 'g', 'gcl', 'h#', 'hh', 'hv', 'ih', 'ix', 'iy',
-                            'jh', 'k', 'kcl', 'l', 'm', 'n', 'ng', 'nx', 'ow', 'oy', 'p',
-                            'pau', 'pcl', 'q', 'r', 's', 'sh', 't', 'tcl', 'th', 'uh', 'uw',
-                            'ux', 'v', 'w', 'y', 'z', 'zh']
+        self.phon = [
+                    # '<SPACE>', 
+                    'aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ax-h', 'axr', 'ay', 'b', 'bcl',
+                    'ch', 'd', 'dcl', 'dh', 'dx', 'eh', 'el', 'em', 'en', 'eng', 'epi', 'er', 'ey',
+                    'f', 'g', 'gcl', 'h#', 'hh', 'hv', 'ih', 'ix', 'iy',
+                    'jh', 'k', 'kcl', 'l', 'm', 'n', 'ng', 'nx', 'ow', 'oy', 'p',
+                    'pau', 'pcl', 'q', 'r', 's', 'sh', 't', 'tcl', 'th', 'uh', 'uw',
+                    'ux', 'v', 'w', 'y', 'z', 'zh']
         self.phon_map = {self.phon[i]: i for i in range(len(self.phon))}
         self.idx_map = {i : self.phon[i] for i in range(len(self.phon))}
 
@@ -241,7 +243,7 @@ def create_timit_target(words, phonemes, waveform, transcript_len, mel_spectrogr
         if curr_word_start > 0 and i == 0:
             # pad with h# before first word (some samples do this already, some don't, but we force them all to omit in preprocessing)
             target.extend(['h#'] * (curr_word_start - 1))
-            target.append('<SPACE>')
+            # target.append('<SPACE>')
 
         if i < len(words) - 1:
             next_word_start = waveform_time_to_spec_time(int(words[i+1]['start']), transcript_len, mel_spectrogram)
@@ -266,7 +268,7 @@ def create_timit_target(words, phonemes, waveform, transcript_len, mel_spectrogr
                     # break will ensure this only happens once right after we reach the last phoneme within the word
                     break
 
-        target.append('<SPACE>')
+        # target.append('<SPACE>')
 
     # pad with h# after last word, off-by-1 for added <SPACE> after last word
     target.extend(['h#'] * (transcript_len - curr_word_end - 1))
