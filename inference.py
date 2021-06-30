@@ -16,6 +16,7 @@ def test(model, test_loader, criterion, device, transformer):
 
     model.eval()
     with torch.no_grad():
+        phon_err_rates = []
         for inputs, input_lengths, targets, target_lengths in test_loader:
 
             inputs, targets = inputs.to(device), targets.to(device)
@@ -26,14 +27,77 @@ def test(model, test_loader, criterion, device, transformer):
             # Transpose back so that we can iterate over batch dimension
             output = output.transpose(0, 1)
             for log_probs, true_target, target_len in zip(output, targets, target_lengths):
-                # guessed_target = greedy_decode(log_probs, transformer)
-                guessed_target = timit_decode(log_probs, target_len, transformer)
-                # guessed_target = beam_search_decode(log_probs, transformer)
-                print('Guessed transcript: ')
-                print(guessed_target)
-                print('True transcript: ')
-                print(transformer.target_to_text(true_target[:target_len]))
-                print('-------------------------------')
+
+                # For TIMIT, moving to 39 test labels occurs in target_to_text()
+
+                guessed_text = timit_decode(log_probs, target_len, transformer)
+                true_text = transformer.target_to_text(true_target[:target_len])
+
+                per = phoneme_error_rate(guessed_text, true_text)
+                phon_err_rates.append(per)
+
+                # print('Guessed transcript: ')
+                # print(guessed_text)
+                # print('True transcript: ')
+                # print(true_text)
+                # print('-------------------------------')
+
+    print('Average PER: {}%'.format(sum(phon_err_rates) / len(phon_err_rates) * 100))
+
+def timit_decode(log_probs, target_len, transformer):
+    """Generates 39-label phoneme sequence from output of network for a single sample"""
+
+    phon_indices = torch.argmax(log_probs, dim=1)
+    return transformer.target_to_text(phon_indices[:target_len])
+
+def phoneme_error_rate(guess, truth):
+    """Phoneme Error Rate of sequence"""
+
+    collapsed_guess, collapsed_true = collapse_repeats(guess), collapse_repeats(truth)
+    levenshtein_dist = edit_distance(collapsed_guess, collapsed_true)
+    
+    return levenshtein_dist / len(truth)
+
+def collapse_repeats(sequence):
+    """Collapse repeats from sequence to be used for PER"""
+
+    result = []
+    prev = None
+
+    for x in sequence:
+        if x == prev:
+            continue
+
+        result.append(x)
+        prev = x
+
+    return result
+
+def edit_distance(a, b):
+    """Levenshtein Distance"""
+
+    # add 1 for blank beginning
+    m, n = len(a)+1, len(b)+1
+    d = torch.empty(m, n)
+
+    for i in range(m):
+        d[i, 0] = i
+
+    for j in range(n):
+        d[0, j] = j
+
+    for i in range(1, m):
+        for j in range(1, n):
+            # off-by-one for first char not starting at index 0 of matrix
+            if a[i-1] == b[j-1]:
+                sub = 0
+            else:
+                sub = 1
+            d[i, j] = min(d[i-1, j] + 1,
+                        d[i, j-1] + 1,
+                        d[i-1, j-1] + sub)
+
+    return d[m-1, n-1]
 
 def beam_search_decode(log_probs, transformer):
 
@@ -79,8 +143,3 @@ def greedy_decode(log_probs, transformer):
 
     return transformer.target_to_text(transcript)
 
-
-def timit_decode(log_probs, target_len, transformer):
-
-    phon_indices = torch.argmax(log_probs, dim=1)
-    return transformer.target_to_text(phon_indices[:target_len])

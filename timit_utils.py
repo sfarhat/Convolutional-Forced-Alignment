@@ -116,11 +116,11 @@ class PhonemeTransformer:
         for idx in target:
             transcript.append(self.idx_map[int(idx)])
 
-        transcript = self.collapse_phones(transcript)
+        transcript = self.map_to_39(transcript)
 
         return transcript
 
-    def collapse_phones(self, phonemes):
+    def map_to_39(self, phonemes):
 
         collapsed = []
         for p in phonemes:
