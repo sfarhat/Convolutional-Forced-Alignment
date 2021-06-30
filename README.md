@@ -109,3 +109,11 @@ There is only one small implementation detail of note: the dimension of time pro
 Lastly, I've decided to use the full 61 phonemes for training. Honestly, I'm doing this because one phoneme (`q`) is collapsed to `None` for the 39 (which is not a label,  it's just straight up nothing), and that annoyingly messes up the output transcript and its length since I have collapsing done after the new phoneme-style output transcripts are generated.
 
 I'll use the same deep CNN model as before with a slightly modified Negative Log Likelihood Loss. Train for 20 epochs or something... It's also 90 degrees here so training will make my room a true pleasure to be in.
+
+**6/17**
+
+I trained it for 20 epochs. Around epochs 11, 17, and 18 the network escaped and jumped to a high value that it never recovered from. Regardless, 10 solid epochs of training were done with a steadily decreasing loss!
+
+But, how did it fare with decoding? Well, it actually did quite well! The network is classifying the sounds to the correct phonemes for the appropriate durations with a pretty high accuracy. I should probably implement a Phoneme Error Rate to be thorough. However, one thing to note: the network still lacks the ability to classify something as a `<SPACE>`, which kinda makes intuitive sense. Just like how in CTC, the blank didn't actually represent a sound, the `<SPACE>` functions similarly. But, we do need these spaces as they provide the word boundaries that allow for interpretability on a word-level.
+    
+ At this point, I could implement GRAD-CAM on a phoneme level, but I'm not interested in that. Next step will be to figure out how to extract word-level information from these transcripts. We got our ideal alignment (woohoo), but maybe I'll need to give a little lee-way in terms of post-processing. Maybe a little sprinkle of a language model? I also need to figure out the whole phoneme-to-word thing. I believe TIMIT comes with a file that could help me out there.
