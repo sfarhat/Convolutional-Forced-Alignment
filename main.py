@@ -9,7 +9,7 @@ from model import ASR_1
 from training import train
 from inference import test
 from timit_utils import TIMITDataset, PhonemeTransformer
-from loss import CollapsedCTCLoss
+from loss import ModifiedNLLLoss
 
 def main():
 
@@ -37,7 +37,7 @@ def main():
         transformer = PhonemeTransformer()
         collator = TIMITCollator(hparams['n_mels'], transformer)
         net = ASR_1(in_dim=1, num_classes=len(transformer.phon), num_features=hparams["n_mels"]*3, activation=hparams["activation"], dropout=0.3)
-        criterion = CollapsedCTCLoss()
+        criterion = ModifiedNLLLoss()
     else:
         raise Exception("Not a valid dataset. Please choose between 'Librispeech' or 'TIMIT'.")
 
@@ -76,8 +76,8 @@ def main():
             train(net, train_loader, criterion, optimizer, epoch, device)
             save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["ADAM_lr"], hparams["dataset"])
     else: 
-        net.cnn_layers[-1].register_forward_hook(get_activation)
-        net.cnn_layers[-1].register_backward_hook(get_gradients)
+        # net.cnn_layers[-1].register_forward_hook(get_activation)
+        # net.cnn_layers[-1].register_backward_hook(get_gradients)
         test(net, test_loader, criterion, device, transformer)
 
 if __name__ == "__main__":

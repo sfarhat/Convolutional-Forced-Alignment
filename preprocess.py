@@ -96,13 +96,13 @@ class TIMITCollator(object):
         mel_spectrogram = torchaudio.transforms.MelSpectrogram(n_mels=self.n_mels)
 
         for sample in dataset:
-            waveform, phonemes, words = sample['audio'], sample['phonemes'], sample['words']
+            waveform, phonemes = sample['audio'], sample['phonemes']
             features = features_from_waveform(waveform, mel_spectrogram).transpose(0, 1)
             inputs.append(features)
 
             input_lengths.append(features.shape[0])
 
-            target = create_timit_target(words, phonemes, waveform, features.shape[0], mel_spectrogram)
+            target = create_timit_target(phonemes, features.shape[0], mel_spectrogram)
             converted_target = self.transformer.phone_to_int(target)
             targets.append(converted_target)
             
@@ -110,7 +110,6 @@ class TIMITCollator(object):
 
         inputs = nn.utils.rnn.pad_sequence(inputs, batch_first=True).unsqueeze(1).transpose(2, 3) 
 
-        # 0 corresponds to <SPACE>, we want it to be the padding phone h# which is mapped to sil
         targets = nn.utils.rnn.pad_sequence(targets, batch_first=True, padding_value=self.transformer.blank_idx)
 
         # Only returning input_lengths to keep training code general and clean, improve when you can...

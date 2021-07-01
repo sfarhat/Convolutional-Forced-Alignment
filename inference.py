@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 from ctcdecode import CTCBeamDecoder
 
 
@@ -33,14 +32,8 @@ def test(model, test_loader, criterion, device, transformer):
                 guessed_text = timit_decode(log_probs, target_len, transformer)
                 true_text = transformer.target_to_text(true_target[:target_len])
 
-                per = phoneme_error_rate(guessed_text, true_text)
+                per = phoneme_error_rate(guessed_text, true_text).item()
                 phon_err_rates.append(per)
-
-                # print('Guessed transcript: ')
-                # print(guessed_text)
-                # print('True transcript: ')
-                # print(true_text)
-                # print('-------------------------------')
 
     print('Average PER: {}%'.format(sum(phon_err_rates) / len(phon_err_rates) * 100))
 

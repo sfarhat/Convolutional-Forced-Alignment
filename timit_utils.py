@@ -10,9 +10,7 @@ class PhonemeTransformer:
     def __init__(self):
 
         # Map from 61 phonemes to 39 as proposed in (Lee & Hon, 1989)
-        # Added <SPACE> token for custom loss
         self.collapse_phon_map = { 
-            # '<SPACE>': '<SPACE>',
             'aa': 'aa',	           
             'ae': 'ae', 
             'ah': 'ah',	
@@ -86,10 +84,8 @@ class PhonemeTransformer:
         #     self.idx_map = {i : self.phon[i] for i in range(len(self.phon))}
         # else:
 
-        # Full 61 phonemes (+1 for <SPACE>)
-        self.phon = [
-                    # '<SPACE>', 
-                    'aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ax-h', 'axr', 'ay', 'b', 'bcl',
+        # Full 61 phonemes
+        self.phon = ['aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ax-h', 'axr', 'ay', 'b', 'bcl',
                     'ch', 'd', 'dcl', 'dh', 'dx', 'eh', 'el', 'em', 'en', 'eng', 'epi', 'er', 'ey',
                     'f', 'g', 'gcl', 'h#', 'hh', 'hv', 'ih', 'ix', 'iy',
                     'jh', 'k', 'kcl', 'l', 'm', 'n', 'ng', 'nx', 'ow', 'oy', 'p',
@@ -133,9 +129,7 @@ class PhonemeTransformer:
     @property
     def blank_idx(self):
         """Used for pad_sequence in preprocessing"""
-        # if self.collapse:
-        #     return self.phon_map['sil']
-        # else:
+
         return self.phon_map['h#']
 
 class TIMITDataset(Dataset):
@@ -180,7 +174,6 @@ class TIMITDataset(Dataset):
             for line in f.read().splitlines():
                 # start_index | end_index | transcript
                 transcript = ' '.join(line.split(' ')[2:])
-                # TODO: lowercase?
                 sample['transcript'] = transcript
 
         phnpath = path + '.PHN'
@@ -189,10 +182,7 @@ class TIMITDataset(Dataset):
                 phonetic_details = {}
                 # start_index | end_index | phoneme
                 phonetic_details['start'], phonetic_details['end'], phonetic_details['phoneme'] = line.split(' ')
-                # IMPORTANT: by forcibly removing any h# at the beginning or end, the padding logic in create_timit_target() works
-                # If this is changed, things would break down
-                if phonetic_details['phoneme'] != 'h#':
-                    sample['phonemes'].append(phonetic_details)
+                sample['phonemes'].append(phonetic_details)
 
         return sample
 
@@ -218,60 +208,26 @@ class TIMITDataset(Dataset):
                 
         return list(paths)
 
-def create_timit_target(words, phonemes, waveform, transcript_len, mel_spectrogram):
+def create_timit_target(phonemes, transcript_len, mel_spectrogram):
+    """Creates target transcript given phonemes and respective durations.
+       Example: 'she' w/ 5 timesteps, 'sh' from [0-2], 'ix' from [3-4] -> ['sh', 'sh', 'sh', 'ix', 'ix']
+
+    Args:
+        phonemes ([type]): [description]
+        transcript_len (int): Length of desired transcript, should match time dimension of input 
+        mel_spectrogram ([type]): [description]
+
+    Returns:
+        list: Target transcript of length transcript_len
     """
-    Take phonemes + words and create transcript with <SPACE> separating word-phonemes.
-    Example: 'she had' -> ['sh', 'ix', '<SPACE>', 'hv', 'eh', 'dcl']
-    The <SPACE> functions similar to the blank in CTC, but we use it much less often
-
-    Original idea: force the 1-to-1 correspondence for alignments by collapsing time dimension, didn't work well
-
-    Updated improvement: keep length consistent with length of audio input, have phoneme repeat
-    until next phoneme begins, TIMIT timestamps coming in clutch here
-    Example: 'she' w/ 5 timesteps, 'sh' from [0-2], 'ix' from [3-4] -> ['sh', 'sh', 'sh', 'ix', 'ix']
-
-    Note: overlapping timestamps exist for words (not phonemes) so go with start times of words/phonemes
-    """
-
     target = []
 
-    for i in range(len(words)):
+    for phoneme_details in phonemes:
+        phon_start = waveform_time_to_spec_time(int(phoneme_details['start']), transcript_len, mel_spectrogram)
+        phon_end = waveform_time_to_spec_time(int(phoneme_details['end']), transcript_len, mel_spectrogram)
+        phoneme = phoneme_details['phoneme']
 
-        curr_word_start = waveform_time_to_spec_time(int(words[i]['start']), transcript_len, mel_spectrogram) 
-        curr_word_end = waveform_time_to_spec_time(int(words[i]['end']), transcript_len, mel_spectrogram)
-
-        if curr_word_start > 0 and i == 0:
-            # pad with h# before first word (some samples do this already, some don't, but we force them all to omit in preprocessing)
-            target.extend(['h#'] * (curr_word_start - 1))
-            # target.append('<SPACE>')
-
-        if i < len(words) - 1:
-            next_word_start = waveform_time_to_spec_time(int(words[i+1]['start']), transcript_len, mel_spectrogram)
-        else:
-            next_word_start = curr_word_end 
-
-
-        for phoneme_details in phonemes:
-            # repeatedly add phoneme for duration
-            # If we want interpretability for phoneme, we can just look at change in label, no need for extra label like <SPACE>
-            phon_start = waveform_time_to_spec_time(int(phoneme_details['start']), transcript_len, mel_spectrogram)
-            phon_end = waveform_time_to_spec_time(int(phoneme_details['end']), transcript_len, mel_spectrogram)
-            phoneme = phoneme_details['phoneme']
-
-            if phon_start >= curr_word_start: 
-                if phon_start < next_word_start:
-                    # target.append(phoneme)
-                    target.extend([phoneme] * (phon_end - phon_start))
-                else:
-                    # Pop last repeat phoneme in word to make room for <SPACE>
-                    target.pop()
-                    # break will ensure this only happens once right after we reach the last phoneme within the word
-                    break
-
-        # target.append('<SPACE>')
-
-    # pad with h# after last word, off-by-1 for added <SPACE> after last word
-    target.extend(['h#'] * (transcript_len - curr_word_end - 1))
+        target.extend([phoneme] * (phon_end - phon_start))
 
     return target
 

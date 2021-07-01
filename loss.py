@@ -1,6 +1,4 @@
-from torch import nn
-
-class CollapsedCTCLoss(object):
+class ModifiedNLLLoss(object):
 
     def __init__(self):
         pass
@@ -14,8 +12,6 @@ class CollapsedCTCLoss(object):
         loss = 0
         N = 0
         for log_probs, target, target_len in zip(output, targets, target_lengths):
-            # pooling layer requires batch dimension, but we don't
-            # collapsed_probs = nn.AdaptiveAvgPool2d((target_len, None))(log_probs.unsqueeze(0)).squeeze()
             # log_probs is padded within batch, so use target_len
 
             # Since log softmax in model, already doing Log-Likelihood, just subtract probs to get NLL
