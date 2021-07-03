@@ -45,7 +45,7 @@ class TextTransformer:
         """Creates char <-> int mappings"""
 
         char_map, idx_map = {}, {}
-        for line in self.char_map_str.strip().split("\n"):
+        for line in self.char_map_str.strip().split('\n'):
             c, num = line.split()
             char_map[c] = int(num)
             idx_map[int(num)] = c
@@ -56,8 +56,8 @@ class TextTransformer:
 
         target = []
         for c in text:
-            if c == " ":
-                target.append(self.char_map["<SPACE>"])
+            if c == ' ':
+                target.append(self.char_map['<SPACE>'])
             else:
                 target.append(self.char_map[c])
         return torch.Tensor(target)
@@ -65,11 +65,11 @@ class TextTransformer:
     def target_to_text(self, target):
         """Converts integer array to string"""
         
-        text = ""
+        text = ''
         for idx in target:
             idx = int(idx)
             if idx == 1:
-                text += " "
+                text += ' '
             else:
                 text += self.idx_map[idx]
         return text

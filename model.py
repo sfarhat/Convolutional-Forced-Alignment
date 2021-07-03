@@ -16,13 +16,13 @@ class Conv_Layer(nn.Module):
 
         self.conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=self.kernel, padding=self.padding, stride=self.stride)
 
-        self.maxout = activation == "maxout"
-        if activation == "relu":
+        self.maxout = activation == 'maxout'
+        if activation == 'relu':
             self.activation = nn.ReLU()
-        elif activation == "prelu":
+        elif activation == 'prelu':
             # Need to use module instead of functional since it has a parameter and needs to be pushed to cuda
             self.activation = nn.PReLU(init=0.1)
-        elif activation == "maxout":
+        elif activation == 'maxout':
             # Better results (theoretically), worse memory usage
             self.conv2 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=self.kernel, padding=self.padding, stride=self.stride)
         else:
@@ -76,13 +76,13 @@ class FC_Layer(nn.Module):
 
         self.fc = nn.Linear(in_dim, out_dim)
         
-        self.maxout = activation == "maxout"
-        if activation == "relu":
+        self.maxout = activation == 'maxout'
+        if activation == 'relu':
             self.activation = nn.ReLU()
-        elif activation == "prelu":
+        elif activation == 'prelu':
             # Need to use module instead of functional since it has a parameter and needs to be pushed to cuda
             self.activation = nn.PReLU(init=0.1)
-        elif activation == "maxout":
+        elif activation == 'maxout':
             # Better results (theoretically), worse memory usage
             self.fc2 = nn.Linear(in_dim, out_dim)
         else:
