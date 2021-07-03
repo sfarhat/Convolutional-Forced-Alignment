@@ -7,7 +7,7 @@ from preprocess import LibrispeechCollator, TIMITCollator
 from utils import weights_init_unif, load_from_checkpoint, save_checkpoint, TextTransformer
 from model import ASR_1 
 from training import train
-from inference import test
+from inference import test, show_activation_map
 from timit_utils import TIMITDataset, PhonemeTransformer
 from loss import ModifiedNLLLoss
 
@@ -43,20 +43,10 @@ def main():
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=hparams["batch_size"], shuffle=True, collate_fn=collator, pin_memory=use_cuda)
     # dev_loader = torch.utils.data.DataLoader(dev_dataset, batch_size=hparams["batch_size"], shuffle=True, collate_fn=collator, pin_memory=use_cuda)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=hparams["batch_size"], shuffle=False, collate_fn=collator, pin_memory=use_cuda)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collator, pin_memory=use_cuda)
 
     net.to(device)
     weights_init_unif(net, hparams["weights_init_a"], hparams["weights_init_b"])
-
-    # Save last layer activations for GRAD-CAM, only needed for test-time
-    activations = []
-    def get_activation(model, input, output):
-        """Forward hook that returns output at chosen layer of network"""
-        activations.append(output.detach())
-
-    gradients = []
-    def get_gradients(module, grad_in, grad_out):
-        gradients.append(grad_out[0].detach())
 
     # ADAM loss w/ lr=10e-4, batch size 20, initial weights initialized uniformly from [-0.05, 0.05], dropout w/ p=0.3 used in all layers except in and out
     # for fine tuning: SGD w/ lr 10e-5, l2 penalty w/ coeff=1e-5
@@ -71,14 +61,16 @@ def main():
     else:
         start_epoch = 0
 
-    if hparams["train"]:
+    if hparams["mode"] == 'train':
         for epoch in range(start_epoch, start_epoch + hparams["epochs"]):
             train(net, train_loader, criterion, optimizer, epoch, device)
             save_checkpoint(net, optimizer, epoch, hparams["activation"], hparams["ADAM_lr"], hparams["dataset"])
-    else: 
-        # net.cnn_layers[-1].register_forward_hook(get_activation)
-        # net.cnn_layers[-1].register_backward_hook(get_gradients)
+    elif hparams["mode"] == 'test': 
         test(net, test_loader, criterion, device, transformer)
+    elif  hparams["mode"] == 'cam':
+        show_activation_map(net, device, test_loader, 1)
+    else:
+        raise Exception("Not a valid mode. Please choose between 'train', 'test', or 'cam'.")
 
 if __name__ == "__main__":
     main()
