@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-class GRAD_CAM(object):
+class Sequential_GRAD_CAM(object):
 
     def __init__(self, net):
         self.net = net
@@ -19,7 +19,7 @@ class GRAD_CAM(object):
         self.net.cnn_layers[-1].register_forward_hook(get_activation)
         self.net.cnn_layers[-1].register_backward_hook(get_gradients)
 
-    def generate_cam(self, target_classes, input_shape):
+    def generate_cam(self, input_shape, target_classes, target_classes_start, target_classes_end):
         """Generates Class Activation Map using final convolutional layer. If multiple target classes provided,
         it will take the element-wise maximum of all the respective CAM's and return the result. 
 
@@ -33,7 +33,9 @@ class GRAD_CAM(object):
 
         cams = []
 
-        for target_class in target_classes:
+        for i in range(len(target_classes)):
+
+            target_class = target_classes[i]
 
             # retain_graph allows for multiple backward() calls
             target_class.backward(retain_graph=True)
@@ -46,20 +48,29 @@ class GRAD_CAM(object):
             # Alternate way: F.adaptive_avg_pool2d(self.gradient, 1), no need for unsqueezing
 
             # Weight activations by said weights and ReLU
-            # TODO: Using the network activations in the last conv layer doesn't take into account how the different classes are spread across time
-            # Our network's FC layers work by using a 2D weight matrix in parallel across all timesteps
-            # So, the same learnable parameters are being applied to each unique timstep classifications
-            # BUT, the gradients in this last layer is only present in the correct timestep?
-            g_cam = F.relu(torch.sum(torch.mul(self.activation, alpha), dim=1, keepdim=True))
+            # IMPORTANT Algorithm tweak: use time-slices of activation one timestep at a time
+            # unsqueeze time dimension since it gets squeezed when slicing for one column blah blah blah
+            g_cam = F.relu(torch.sum(torch.mul(self.activation[:,:,:,target_classes_end - target_classes_start + i].unsqueeze(-1), alpha), dim=1, keepdim=True))
 
-            # Interpolate
-            cams.append(F.interpolate(g_cam, size=input_shape, mode='bilinear'))
+            # Pad in time dimension with zeros on left of start and right of end
+            padding = (target_classes_start + i, input_shape[1] - (target_classes_start + i + 1))
+            padded_gcam = F.pad(g_cam, padding, 'constant', 0)
+            # Interpolate in features dimension
+            cams.append(F.interpolate(padded_gcam, size=input_shape, mode='bilinear'))
 
-        combined_cams = torch.empty_like(cams[0])
+        combined_cams = torch.zeros_like(cams[0])
 
         # This max works since CAM's are ReLU'd and allows for superimposing multiple cams
         for cam in cams:
-            combined_cams = torch.maximum(combined_cams, cam)
+            # There seems to be high variance among cams that are combined, 
+            # so certain classes will make other classes' cams disappear. Normalizing
+            # will alleviate this problem
+            if torch.all(cam == 0):
+                # Sometimes ReLU'd activations are all 0's, will cause NaN problems when normalized
+                normalized_cam = cam
+            else:
+                normalized_cam = (cam - torch.min(cam)) / (torch.max(cam) - torch.min(cam))
+            combined_cams = torch.maximum(combined_cams, normalized_cam)
 
         return combined_cams 
 
@@ -69,7 +80,7 @@ class GRAD_CAM(object):
         # Off by one so that first "change" corresponds to first phoneme
         changes = -1
         prev = None
-        target_class_start, target_class_end = -1, -1
+        target_classes_start, target_classes_end = -1, -1
         desired_phoneme = None
         started = False
 
@@ -77,25 +88,24 @@ class GRAD_CAM(object):
             p = guessed_labels[i]
             if p != prev:
                 if started:
-                    target_class_end = i
+                    target_classes_end = i
                     break
                 changes += 1
                 prev = p
 
             if changes == desired_phone_idx:
                 if not started:
-                    target_class_start = i
+                    target_classes_start = i
                     started = True
                 desired_phoneme = p
 
         print('---------------------------')
-        print('Range of CAM\'ed label: {} to {}'.format(target_class_start, target_class_end))
+        print('Range of CAM\'ed label: {} to {}'.format(target_classes_start, target_classes_end))
         print('---------------------------')
         # log_probs is of shape time x classes
-        # TODO: i believe the problem has to be here with indexing the correct values...
         target_classes = []
-        target_class_timestep_probs = log_probs[target_class_start:target_class_end]
+        target_class_timestep_probs = log_probs[target_classes_start:target_classes_end]
         for probs in target_class_timestep_probs:
             target_classes.append(probs[desired_phoneme])
 
-        return target_classes
+        return target_classes, target_classes_start, target_classes_end
