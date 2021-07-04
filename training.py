@@ -1,4 +1,4 @@
-import torch
+from loss import calculate_loss
 
 def train(model, train_loader, criterion, optimizer, epoch, device):
     """
@@ -11,7 +11,6 @@ def train(model, train_loader, criterion, optimizer, epoch, device):
         optimizer (torch.optim): Optimizer
         epoch (int): Current epoch #
         device (torch.device): Device (cpu or cuda)
-        writer (torch.utils.tensorboard.writer): Tensorboard debugging info
     """
 
     model.train()
@@ -26,9 +25,7 @@ def train(model, train_loader, criterion, optimizer, epoch, device):
         output = model(inputs)
         # Debug note: breakpoint here for expression: torch.isnan(output).any()
 
-        # output passed in should be of shape (time, batch size, num_classes)
-        output = output.transpose(0, 1)
-        loss = criterion(output, targets, input_lengths, target_lengths)
+        loss = calculate_loss(criterion, output, targets, input_lengths, target_lengths)
 
         # if torch.isnan(loss).any():
         #     for p,n in zip(model.parameters(), model._all_weights[0]):
@@ -37,7 +34,6 @@ def train(model, train_loader, criterion, optimizer, epoch, device):
 
         loss.backward()
         # Debug note: breakpoint here for expression: torch.isnan(loss).any()
-
 
         optimizer.step() 
 

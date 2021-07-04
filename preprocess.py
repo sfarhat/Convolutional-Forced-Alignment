@@ -1,9 +1,7 @@
-from typing import Text
 import torch
 import torch.nn as nn
 import torchaudio
-from timit_utils import create_timit_target, PhonemeTransformer
-from utils import TextTransformer
+from dataset_utils import create_timit_target, PhonemeTransformer, TextTransformer
 
 class LibrispeechCollator(object):
 

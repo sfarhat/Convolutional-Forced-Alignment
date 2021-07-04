@@ -1,9 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 import torchaudio
-from config import DATASET_DIR
 import os
-
 
 class PhonemeTransformer:
 
@@ -239,3 +237,74 @@ def waveform_time_to_spec_time(t, transcript_len, mel_spectrogram):
         if t <= hop * hop_length + window_length and t >= hop * hop_length - window_length:
             # As a convention, we will use the first hop that covers t, even though multiple may cover it as well
             return hop
+
+class TextTransformer:
+    """Handles all transformations bewteen text strings and integer equivalents"""
+
+    def __init__(self):
+
+        # index 0 is reserved for blank character in CTC
+        self.char_map_str = """
+        <SPACE> 1
+        a 2
+        b 3
+        c 4
+        d 5
+        e 6
+        f 7
+        g 8
+        h 9
+        i 10
+        j 11
+        k 12
+        l 13
+        m 14
+        n 15
+        o 16
+        p 17
+        q 18
+        r 19
+        s 20
+        t 21
+        u 22
+        v 23
+        w 24
+        x 25
+        y 26
+        z 27
+        ' 28
+        """
+        self.char_map, self.idx_map = self.create_char_map() 
+
+    def create_char_map(self):
+        """Creates char <-> int mappings"""
+
+        char_map, idx_map = {}, {}
+        for line in self.char_map_str.strip().split('\n'):
+            c, num = line.split()
+            char_map[c] = int(num)
+            idx_map[int(num)] = c
+        return char_map, idx_map
+
+    def char_to_int(self, text):
+        """Converts string to integer Tensor"""
+
+        target = []
+        for c in text:
+            if c == ' ':
+                target.append(self.char_map['<SPACE>'])
+            else:
+                target.append(self.char_map[c])
+        return torch.Tensor(target)
+
+    def target_to_text(self, target):
+        """Converts integer array to string"""
+        
+        text = ''
+        for idx in target:
+            idx = int(idx)
+            if idx == 1:
+                text += ' '
+            else:
+                text += self.idx_map[idx]
+        return text

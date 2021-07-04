@@ -2,6 +2,7 @@ import torch
 from ctcdecode import CTCBeamDecoder
 from grad_cam import Sequential_GRAD_CAM
 import matplotlib.pyplot as plt
+from loss import calculate_loss
 
 def test(model, test_loader, criterion, device, transformer):
     """
@@ -23,15 +24,12 @@ def test(model, test_loader, criterion, device, transformer):
             inputs, targets = inputs.to(device), targets.to(device)
             # output of shape batch x time x classes
             output = model(inputs)
-            output = output.transpose(0, 1)
-            loss = criterion(output, targets, input_lengths, target_lengths)
-            
-            # Transpose back so that we can iterate over batch dimension
-            output = output.transpose(0, 1)
+            loss = calculate_loss(criterion, output, targets, input_lengths, target_lengths)
 
             for log_probs, true_target, target_len, input in zip(output, targets, target_lengths, inputs):
 
                 # For TIMIT, moving to 39 test labels occurs in target_to_text()
+                # TODO: this doesn't generalize well to handle both datasets
                 guessed_text = timit_decode(log_probs, target_len, transformer)
                 true_text = transformer.target_to_text(true_target[:target_len])
 

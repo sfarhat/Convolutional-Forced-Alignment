@@ -4,13 +4,12 @@ import torchaudio
 import os
 from config import hparams, DATASET_DIR
 from preprocess import LibrispeechCollator, TIMITCollator, preprocess_single_waveform
-from utils import weights_init_unif, load_from_checkpoint, save_checkpoint, TextTransformer
+from utils import weights_init_unif, load_from_checkpoint, save_checkpoint
 from model import ASR_1 
 from training import train
 from inference import test, show_activation_map
-from timit_utils import TIMITDataset, PhonemeTransformer
-from loss import ModifiedNLLLoss
-import matplotlib.pyplot as plt
+from dataset_utils import TIMITDataset, PhonemeTransformer, TextTransformer
+from loss import SequentialNLLLoss
 
 def main():
 
@@ -38,7 +37,7 @@ def main():
         transformer = PhonemeTransformer()
         collator = TIMITCollator(hparams['n_mels'], transformer)
         net = ASR_1(in_dim=1, num_classes=len(transformer.phon), num_features=hparams['n_mels']*3, activation=hparams['activation'], dropout=0.3)
-        criterion = ModifiedNLLLoss()
+        criterion = SequentialNLLLoss()
     else:
         raise Exception('Not a valid dataset. Please choose between \'Librispeech\' or \'TIMIT\'.')
 
@@ -52,7 +51,6 @@ def main():
     # ADAM loss w/ lr=10e-4, batch size 20, initial weights initialized uniformly from [-0.05, 0.05], dropout w/ p=0.3 used in all layers except in and out
     # for fine tuning: SGD w/ lr 10e-5, l2 penalty w/ coeff=1e-5
 
-    # TODO: consider using ADAMW for LR decay
     optimizer = torch.optim.Adam(net.parameters(), lr=hparams['ADAM_lr'])
     finetune_optimizer = torch.optim.SGD(net.parameters(), lr=hparams['SGD_lr'], weight_decay=hparams['SGD_l2_penalty'])
 
