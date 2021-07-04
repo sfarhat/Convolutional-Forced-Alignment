@@ -71,10 +71,6 @@ def main():
     elif  hparams['mode'] == 'cam':
         test_waveform, _ = torchaudio.load(hparams['sample_path'])
         test_input = preprocess_single_waveform(test_waveform, hparams['n_mels'])
-        plt.imshow(test_input.permute(1, 2, 0))
-        plt.colorbar()
-        plt.savefig('spectrogram.png')
-        plt.show()
         show_activation_map(net, device, test_input, 1)
     else:
         raise Exception('Not a valid mode. Please choose between \'train\', \'test\', or \'cam\'.')

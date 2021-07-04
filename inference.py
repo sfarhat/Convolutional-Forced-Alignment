@@ -66,9 +66,10 @@ def show_activation_map(model, device, input, desired_phone_idx):
     # Squeeze out batch and channel dimensions when providing interpolation size
     cam = gcam.generate_cam(target_classes, input.squeeze(0).squeeze(0).shape)
 
-    # TODO: superimpose CAM on input
     plotted_cam = cam.squeeze(0).permute(1, 2, 0).cpu()
-    plt.imshow(plotted_cam)
+    plotted_input = input.squeeze(0).permute(1, 2, 0).cpu()
+    plt.imshow(plotted_cam, alpha=1, cmap='jet')
+    plt.imshow(plotted_input, alpha=0.5, cmap='binary')
     plt.savefig('cam.png')
     plt.show()
 

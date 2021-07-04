@@ -46,6 +46,10 @@ class GRAD_CAM(object):
             # Alternate way: F.adaptive_avg_pool2d(self.gradient, 1), no need for unsqueezing
 
             # Weight activations by said weights and ReLU
+            # TODO: Using the network activations in the last conv layer doesn't take into account how the different classes are spread across time
+            # Our network's FC layers work by using a 2D weight matrix in parallel across all timesteps
+            # So, the same learnable parameters are being applied to each unique timstep classifications
+            # BUT, the gradients in this last layer is only present in the correct timestep?
             g_cam = F.relu(torch.sum(torch.mul(self.activation, alpha), dim=1, keepdim=True))
 
             # Interpolate
@@ -84,10 +88,14 @@ class GRAD_CAM(object):
                     started = True
                 desired_phoneme = p
 
+        print('---------------------------')
+        print('Range of CAM\'ed label: {} to {}'.format(target_class_start, target_class_end))
+        print('---------------------------')
         # log_probs is of shape time x classes
-        target_class = []
+        # TODO: i believe the problem has to be here with indexing the correct values...
+        target_classes = []
         target_class_timestep_probs = log_probs[target_class_start:target_class_end]
         for probs in target_class_timestep_probs:
-            target_class.append(probs[desired_phoneme])
+            target_classes.append(probs[desired_phoneme])
 
-        return target_class
+        return target_classes
