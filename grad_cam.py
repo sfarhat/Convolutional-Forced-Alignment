@@ -59,7 +59,7 @@ class GRAD_CAM(object):
 
         return combined_cams 
 
-    def get_target_classes(log_probs, guessed_labels, desired_phone_idx):
+    def get_target_classes(self, log_probs, guessed_labels, desired_phone_idx):
         """Given index of desired phoneme in guessed_labels, will return list of gradient-required objects corresponding to them for use in CAM later"""
 
         # Off by one so that first "change" corresponds to first phoneme

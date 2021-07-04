@@ -13,5 +13,6 @@ hparams = {
     'n_mels': 40,
     'start_epoch': 14,
     'mode': 'cam',
-    'dataset': 'TIMIT'
+    'dataset': 'TIMIT',
+    'sample_path': '/mnt/d/Datasets/timit/data/TEST/DR1/FAKS0/SI1573.WAV'
 }

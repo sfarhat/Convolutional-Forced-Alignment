@@ -11,7 +11,7 @@ class LibrispeechCollator(object):
         self.n_mels = n_mels
         self.transformer = transformer
         if not isinstance(self.transformer, TextTransformer):
-            raise TypeError("Librispeech must use a TextTransformer, but it was given a " + type(self.transformer))
+            raise TypeError('Librispeech must use a TextTransformer, but it was given a ' + type(self.transformer))
 
     def __call__(self, batch):
         return self.preprocess_librispeech(batch)
@@ -58,7 +58,7 @@ class LibrispeechCollator(object):
             inputs.append(features)
             input_lengths.append(features.shape[0]) # some examples online divide the shape by 2, why?
 
-            # TODO: change this to "to_int()" for consistency between tranformers?
+            # TODO: change this to 'to_int()' for consistency between tranformers?
             target = self.transformer.char_to_int(transcript.lower())
             targets.append(target)
             target_lengths.append(len(target))
@@ -80,7 +80,7 @@ class TIMITCollator(object):
         self.n_mels = n_mels
         self.transformer = transformer
         if not isinstance(self.transformer, PhonemeTransformer):
-            raise TypeError("TIMIT must use a PhonemeTransformer, but it was given a " + type(self.transformer))
+            raise TypeError('TIMIT must use a PhonemeTransformer, but it was given a ' + type(self.transformer))
 
     def __call__(self, batch):
         return self.preprocess_timit(batch)
@@ -115,12 +115,21 @@ class TIMITCollator(object):
         # Only returning input_lengths to keep training code general and clean, improve when you can...
         return (inputs, input_lengths, targets, target_lengths)
 
+def preprocess_single_waveform(waveform, n_mels):
+
+    mel_spectrogram = torchaudio.transforms.MelSpectrogram(n_mels=n_mels)
+
+    features = features_from_waveform(waveform, mel_spectrogram)
+
+    # Returns features of shape channel x features x time
+    return features.unsqueeze(0)
+
 def features_from_waveform(waveform, mel_spectrogram):
     """Generate features from an audio waveform.
 
-    Raw audio is transformed into 40-dimensional log mel-filter-bank (plus energy term) coefficients with deltas and delta-deltas, which reasults in 123 dimensional features.
+    Raw audio is transformed into 40-dimensional log mel-filter-bank coefficients with deltas and delta-deltas, which reasults in 120 dimensional features.
     Each dimension is normalized to have zero mean and unit variance over the training set.
-    TODO: is energy of the raw data or the spectorgram? if former, wouldn't it be the same for every timestep
+    Unlike the inspired Zhang model, we do not use an energy term.
 
     Args:
         waveform (Tensor): [shape: (channel x time)] Time series data representing spoken input

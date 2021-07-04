@@ -3,13 +3,14 @@ import torch.nn as nn
 import torchaudio
 import os
 from config import hparams, DATASET_DIR
-from preprocess import LibrispeechCollator, TIMITCollator
+from preprocess import LibrispeechCollator, TIMITCollator, preprocess_single_waveform
 from utils import weights_init_unif, load_from_checkpoint, save_checkpoint, TextTransformer
 from model import ASR_1 
 from training import train
 from inference import test, show_activation_map
 from timit_utils import TIMITDataset, PhonemeTransformer
 from loss import ModifiedNLLLoss
+import matplotlib.pyplot as plt
 
 def main():
 
@@ -68,8 +69,12 @@ def main():
     elif hparams['mode'] == 'test': 
         test(net, test_loader, criterion, device, transformer)
     elif  hparams['mode'] == 'cam':
-        # TODO: figure this how to nicely pass in single inputs
-        test_input = None
+        test_waveform, _ = torchaudio.load(hparams['sample_path'])
+        test_input = preprocess_single_waveform(test_waveform, hparams['n_mels'])
+        plt.imshow(test_input.permute(1, 2, 0))
+        plt.colorbar()
+        plt.savefig('spectrogram.png')
+        plt.show()
         show_activation_map(net, device, test_input, 1)
     else:
         raise Exception('Not a valid mode. Please choose between \'train\', \'test\', or \'cam\'.')

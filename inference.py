@@ -48,7 +48,7 @@ def show_activation_map(model, device, input, desired_phone_idx):
     Args:
         model (nn.Module): Network to put input into
         device (torch.device): Device (cpu or cuda) 
-        input (????): Input to be fed into model
+        input (Tensor): Input to be fed into model of shape channel x features x time
         desired_phone_idx (int): The index of the desired phoneme in the output transcript to generate the activation map with respect to 
     """
 
@@ -57,18 +57,19 @@ def show_activation_map(model, device, input, desired_phone_idx):
     # Artifically create batch dimension
     input = input.to(device).unsqueeze(0)
     # output of shape batch x time x classes
-    log_probs = model(input)
+    log_probs = model(input).squeeze(0)
 
     guessed_labels = torch.argmax(log_probs, dim=1)
 
     # guessed_indices don't requires_grad, so we index into log_probs to get target_classes
     target_classes = gcam.get_target_classes(log_probs, guessed_labels, desired_phone_idx)
-    # Squeeze out channel dimension when providing interpolation size
-    cam = gcam.generate_cam(target_classes, input.squeeze(0).shape)
+    # Squeeze out batch and channel dimensions when providing interpolation size
+    cam = gcam.generate_cam(target_classes, input.squeeze(0).squeeze(0).shape)
 
     # TODO: superimpose CAM on input
     plotted_cam = cam.squeeze(0).permute(1, 2, 0).cpu()
     plt.imshow(plotted_cam)
+    plt.savefig('cam.png')
     plt.show()
 
     # TODO: if we want to do something wih this + forced alignment, use time transformation function to go back to waveform time
@@ -134,7 +135,6 @@ def beam_search_decode(log_probs, transformer):
     # Labels come from order specified in utils.py, _ represents blank
     labels = list("_ abcdefghijklmnopqrstuvwxyz'")
 
-    # TODO: path to KenLM, alpha and beta values
     decoder = CTCBeamDecoder(
         labels,
         model_path=None,
