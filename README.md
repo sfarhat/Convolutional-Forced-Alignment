@@ -142,7 +142,7 @@ After writing the previous post, I drew a nice diagram for myself to see if I wo
 
 Did this work? Was my logic correct? Yes and yes. Below is the modified GRAD-CAM for a phoneme that is classified as occurring within timesteps 10 and 18.
 
-![Modified GRAD-CAM Result](./cam.png)
+![Modified GRAD-CAM Result](./example_cam.png)
 
 Sometimes, the ReLU'd activations end up just giving us an all 0 activation map. In addition, there seems to be high variance among the cams that are combined across neighboring timesteps, so certain classes will make other classes' cams disappear in the final result. Normalizing each one before combining will alleviate this problem.
 

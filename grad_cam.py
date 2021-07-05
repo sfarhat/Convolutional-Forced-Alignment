@@ -19,12 +19,13 @@ class Sequential_GRAD_CAM(object):
         self.net.cnn_layers[-1].register_forward_hook(get_activation)
         self.net.cnn_layers[-1].register_backward_hook(get_gradients)
 
-    def generate_cam(self, input_shape, target_classes, target_classes_start, target_classes_end):
+    def generate_cam(self, input_shape, target_classes):
         """Generates Class Activation Map using final convolutional layer. If multiple target classes provided,
         it will take the element-wise maximum of all the respective CAM's and return the result. 
 
         Args:
-            target_classes (list): List of desired output classes to compute CAM for, will be combined if length > 1
+            target_classes_info (list): List of desired output classes (+ timing info) to compute CAM for, will be combined if length > 1,
+                                        each entry has form ([p_class, p_class, p_class], {'start': start, 'end': end}) 
             input_shape (tuple): Shape of input to network which should match desired interpolated CAM dimensions (only height and width) 
 
         Returns:
@@ -33,12 +34,10 @@ class Sequential_GRAD_CAM(object):
 
         cams = []
 
-        for i in range(len(target_classes)):
-
-            target_class = target_classes[i]
+        for t, tc in target_classes.items():
 
             # retain_graph allows for multiple backward() calls
-            target_class.backward(retain_graph=True)
+            tc.backward(retain_graph=True)
 
             # Gradient and activations have shape batch x channels x features x time
 
@@ -50,10 +49,10 @@ class Sequential_GRAD_CAM(object):
             # Weight activations by said weights and ReLU
             # IMPORTANT Algorithm tweak: use time-slices of activation one timestep at a time
             # unsqueeze time dimension since it gets squeezed when slicing for one column blah blah blah
-            g_cam = F.relu(torch.sum(torch.mul(self.activation[:,:,:,target_classes_end - target_classes_start + i].unsqueeze(-1), alpha), dim=1, keepdim=True))
+            g_cam = F.relu(torch.sum(torch.mul(self.activation[:,:,:,t].unsqueeze(-1), alpha), dim=1, keepdim=True))
 
             # Pad in time dimension with zeros on left of start and right of end
-            padding = (target_classes_start + i, input_shape[1] - (target_classes_start + i + 1))
+            padding = (t, input_shape[1] - (t + 1))
             padded_gcam = F.pad(g_cam, padding, 'constant', 0)
             # Interpolate in features dimension
             cams.append(F.interpolate(padded_gcam, size=input_shape, mode='bilinear'))
@@ -74,38 +73,48 @@ class Sequential_GRAD_CAM(object):
 
         return combined_cams 
 
-    def get_target_classes(self, log_probs, guessed_labels, desired_phone_idx):
-        """Given index of desired phoneme in guessed_labels, will return list of gradient-required objects corresponding to them for use in CAM later"""
+    def get_target_classes(self, log_probs, guessed_labels, desired_phone_indices):
+        """Given indices of desired phonemes in guessed_labels, will return time-indexed dictionary of gradient-required objects corresponding to them for use in CAM"""
 
-        # Off by one so that first "change" corresponds to first phoneme
-        changes = -1
-        prev = None
-        target_classes_start, target_classes_end = -1, -1
-        desired_phoneme = None
-        started = False
+        def get_target_classes_for_single_phone(log_probs, guessed_labels, desired_phone_idx):
+            # Off by one so that first "change" corresponds to first phoneme
+            changes = -1
+            prev = None
+            target_classes_start, target_classes_end = -1, -1
+            desired_phoneme = None
+            started = False
 
-        for i in range(len(guessed_labels)):
-            p = guessed_labels[i]
-            if p != prev:
-                if started:
-                    target_classes_end = i
-                    break
-                changes += 1
-                prev = p
+            for i in range(len(guessed_labels)):
+                p = guessed_labels[i]
+                if p != prev:
+                    if started:
+                        target_classes_end = i
+                        break
+                    changes += 1
+                    prev = p
 
-            if changes == desired_phone_idx:
-                if not started:
-                    target_classes_start = i
-                    started = True
-                desired_phoneme = p
+                if changes == desired_phone_idx:
+                    if not started:
+                        target_classes_start = i
+                        started = True
+                    desired_phoneme = p
 
-        print('---------------------------')
-        print('Range of CAM\'ed label: {} to {}'.format(target_classes_start, target_classes_end))
-        print('---------------------------')
-        # log_probs is of shape time x classes
-        target_classes = []
-        target_class_timestep_probs = log_probs[target_classes_start:target_classes_end]
-        for probs in target_class_timestep_probs:
-            target_classes.append(probs[desired_phoneme])
+            print('---------------------------')
+            print('Range of CAM\'ed label: {} to {}'.format(target_classes_start, target_classes_end))
+            print('---------------------------')
+            # log_probs is of shape time x classes
+            target_classes = {} 
 
-        return target_classes, target_classes_start, target_classes_end
+            for t in range(target_classes_start, target_classes_end):
+                target_classes[t] = log_probs[t][desired_phoneme] 
+
+            return target_classes
+
+        # {timestep: target_class} 
+        target_classes = {} 
+
+        for desired_phone_idx in desired_phone_indices:
+            tc = get_target_classes_for_single_phone(log_probs, guessed_labels, desired_phone_idx)
+            target_classes.update(tc)
+
+        return target_classes
