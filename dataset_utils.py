@@ -73,11 +73,11 @@ class PhonemeTransformer:
         } 
 
         # if self.collapse:
-        #     # 39 collapsed phonemes (+1 for space)
-        #     self.phon = ['<SPACE>', 'aa', 'ae', 'ah', 'aw', 'er', 'ay', 'b', 'sil', 'ch', 'd', 'dh', 'dx',
-        #                         'eh', 'l', 'm', 'n', 'ng', 'ey', 'f', 'g', 'hh', 'ih', 'iy', 'jh',
-        #                         'k', 'ow', 'oy', 'p', 'r', 's', 'sh', 't', 'th', 'uh', 'uw', 'v',
-        #                         'w', 'y', 'z']
+        #     # 39 collapsed phonemes
+            # self.phon = ['aa', 'ae', 'ah', 'aw', 'er', 'ay', 'b', 'sil', 'ch', 'd', 'dh', 'dx',
+            #             'eh', 'l', 'm', 'n', 'ng', 'ey', 'f', 'g', 'hh', 'ih', 'iy', 'jh',
+            #             'k', 'ow', 'oy', 'p', 'r', 's', 'sh', 't', 'th', 'uh', 'uw', 'v',
+            #             'w', 'y', 'z']
         #     self.phon_map = {self.phon[i]: i for i in range(len(self.phon))}
         #     self.idx_map = {i : self.phon[i] for i in range(len(self.phon))}
         # else:
@@ -92,8 +92,14 @@ class PhonemeTransformer:
         self.phon_map = {self.phon[i]: i for i in range(len(self.phon))}
         self.idx_map = {i : self.phon[i] for i in range(len(self.phon))}
 
+        # ARPABET is missing 'sil' and 'dx'
+        arpabet = ['aa', 'ae', 'ah', 'ao', 'aw', 'ay', 'b', 'ch', 'd', 'dh',
+                    'eh', 'er', 'ey', 'f', 'g', 'hh', 'ih', 'iy', 'jh', 'k',
+                    'l', 'm', 'n', 'ng', 'ow', 'oy', 'p', 'r', 's', 'sh', 't',
+                    'th', 'uh', 'uw', 'v', 'w', 'y', 'z', 'zh']
+
     def phone_to_int(self, phonemes):
-        """Converts phonemes to integer Tensor"""
+        """Converts list of phonemes to integer Tensor"""
 
         target = []
 
@@ -103,7 +109,7 @@ class PhonemeTransformer:
         return torch.Tensor(target)
 
     def target_to_text(self, target):
-        """Converts target to phoneme transcripts while collapsing 61 phones to 39"""
+        """Converts target list of integers to phoneme transcripts while collapsing 61 phones to 39"""
 
         transcript = []
 
@@ -115,6 +121,7 @@ class PhonemeTransformer:
         return transcript
 
     def map_to_39(self, phonemes):
+        """Collapses list of phonemes into 39 test ones for TIMIT"""
 
         collapsed = []
         for p in phonemes:

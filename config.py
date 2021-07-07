@@ -14,5 +14,5 @@ hparams = {
     'start_epoch': 14,
     'mode': 'cam',
     'dataset': 'TIMIT',
-    'sample_path': '/mnt/d/Datasets/timit/data/TEST/DR1/FAKS0/SI1573.WAV'
+    'sample_path': '/mnt/d/Datasets/timit/data/TRAIN/DR4/MESG0/SX72.WAV'
 }
