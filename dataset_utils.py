@@ -69,7 +69,8 @@ class PhonemeTransformer:
             'w': 'w', 	
             'y': 'y', 	
             'z': 'z', 	
-            'zh': 'sh'	
+            'zh': 'sh',
+            '<sp>': '<sp>'
         } 
 
         # if self.collapse:

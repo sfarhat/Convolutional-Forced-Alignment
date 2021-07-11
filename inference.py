@@ -3,6 +3,7 @@ from ctcdecode import CTCBeamDecoder
 from grad_cam import Sequential_GRAD_CAM
 import matplotlib.pyplot as plt
 from loss import calculate_loss
+from pronouncing import generate_spaces_in_guess, pronunciation_model
 
 def test(model, test_loader, criterion, device, transformer):
     """
@@ -76,6 +77,23 @@ def show_activation_map(model, device, input, desired_phone_indices):
 
     # TODO: if we want to do something wih this + forced alignment, use time transformation function to go back to waveform time
 
+def force_align(model, transformer, device, input, transcript):
+
+    pronounced_transcript = pronunciation_model(transcript, transformer)
+
+    input = input.to(device).unsqueeze(0)
+    log_probs = model(input).squeeze(0)
+    guessed_labels = torch.argmax(log_probs, dim=1)
+
+    # Must do int -> 39 txt phones -> collapsing repeats
+    # Going from int to 39 can introduce extra repeats as well
+    guess = collapse_repeats(transformer.target_to_text(guessed_labels))
+
+    path = edit_distance_path(guess, pronounced_transcript)
+
+    guess_with_spaces, space_indices = generate_spaces_in_guess(guess, pronounced_transcript, path)
+    print(guess_with_spaces)
+
 def timit_decode(log_probs, target_len, transformer):
     """Generates 39-label phoneme sequence from output of network for a single sample"""
 
@@ -105,8 +123,8 @@ def collapse_repeats(sequence):
 
     return result
 
-def edit_distance(a, b):
-    """Levenshtein Distance"""
+def generate_edit_distance_matrix(a, b):
+    """Generates DP matrix for Levenshtein distance"""
 
     # add 1 for blank beginning
     m, n = len(a)+1, len(b)+1
@@ -129,7 +147,44 @@ def edit_distance(a, b):
                         d[i, j-1] + 1,
                         d[i-1, j-1] + sub)
 
-    return d[m-1, n-1]
+    return d
+
+def edit_distance(a, b):
+    """Levenshtein Distance"""
+
+    return generate_edit_distance_matrix(a, b)[-1,-1]
+
+def edit_distance_path(a, b):
+
+    d = generate_edit_distance_matrix(a, b)
+
+    i, j = d.size(0)-1, d.size(1)-1
+    path = [(i, j)]
+
+    while i >= 0 and j >= 0:
+        if i == 0 and j == 0:
+            break
+        elif i == 0:
+            path.append((i, j-1))
+            i, j = i, j-1
+        elif j == 0:
+            path.append((i-1, j))
+            i, j = i-1, j
+        else:
+            up, left, diagonal = d[i-1,j], d[i, j-1], d[i-1, j-1]
+            min_direction = min(up, left, diagonal)
+            # If multiple possible paths, prefers non-diagonal ones
+            if min_direction == up:
+                path.append((i-1, j))
+                i, j = i-1, j
+            elif min_direction == left:
+                path.append((i, j-1))
+                i, j = i, j-1
+            else:
+                path.append((i-1, j-1))
+                i, j = i-1, j-1
+
+    return path[::-1]
 
 def beam_search_decode(log_probs, transformer):
 

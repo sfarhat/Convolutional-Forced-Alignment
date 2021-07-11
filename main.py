@@ -7,9 +7,10 @@ from preprocess import LibrispeechCollator, TIMITCollator, preprocess_single_wav
 from utils import weights_init_unif, load_from_checkpoint, save_checkpoint
 from model import ASR_1 
 from training import train
-from inference import test, show_activation_map
+from inference import test, show_activation_map, force_align
 from dataset_utils import TIMITDataset, PhonemeTransformer, TextTransformer
 from loss import SequentialNLLLoss
+from pronouncing import get_lyrics
 
 def main():
 
@@ -66,10 +67,15 @@ def main():
             save_checkpoint(net, optimizer, epoch, hparams['activation'], hparams['ADAM_lr'], hparams['dataset'])
     elif hparams['mode'] == 'test': 
         test(net, test_loader, criterion, device, transformer)
-    elif  hparams['mode'] == 'cam':
-        test_waveform, _ = torchaudio.load(hparams['sample_path'])
-        test_input = preprocess_single_waveform(test_waveform, hparams['n_mels'])
-        show_activation_map(net, device, test_input, [1, 2, 10])
+    elif hparams['mode'] == 'cam':
+        waveform, _ = torchaudio.load(hparams['sample_path'])
+        input = preprocess_single_waveform(waveform, hparams['n_mels'])
+        show_activation_map(net, device, input, [1, 2, 10])
+    elif hparams['mode'] == 'lyricism':
+        waveform, _ = torchaudio.load(hparams['sample_path'])
+        input = preprocess_single_waveform(waveform, hparams['n_mels'])
+        transcript = get_lyrics(hparams['sample_transcript'], timit=True)
+        force_align(net, transformer, device, input, transcript)
     else:
         raise Exception('Not a valid mode. Please choose between \'train\', \'test\', or \'cam\'.')
 

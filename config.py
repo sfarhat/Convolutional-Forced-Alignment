@@ -12,7 +12,8 @@ hparams = {
     'activation': 'prelu',
     'n_mels': 40,
     'start_epoch': 14,
-    'mode': 'cam',
+    'mode': 'lyricism',
     'dataset': 'TIMIT',
-    'sample_path': '/mnt/d/Datasets/timit/data/TRAIN/DR4/MESG0/SX72.WAV'
+    'sample_path': '/mnt/d/Datasets/timit/data/TRAIN/DR4/MESG0/SX72.WAV',
+    'sample_transcript': '/mnt/d/Datasets/timit/data/TRAIN/DR4/MESG0/SX72.TXT'
 }
