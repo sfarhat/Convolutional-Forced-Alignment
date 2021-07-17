@@ -1,3 +1,4 @@
+import enum
 from typing import final
 import torch
 from ctcdecode import CTCBeamDecoder
@@ -20,10 +21,12 @@ def test(model, test_loader, criterion, device, transformer):
     """
 
     model.eval()
+    data_len = len(test_loader.dataset)
     with torch.no_grad():
         phon_err_rates = []
-        for inputs, input_lengths, targets, target_lengths in test_loader:
+        for batch_num, data in enumerate(test_loader):
 
+            inputs, input_lengths, targets, target_lengths = data
             inputs, targets = inputs.to(device), targets.to(device)
             # output of shape batch x time x classes
             output = model(inputs)
@@ -38,6 +41,8 @@ def test(model, test_loader, criterion, device, transformer):
 
                 per = phoneme_error_rate(guessed_text, true_text).item()
                 phon_err_rates.append(per)
+
+                print(f"[{(batch_num+1) * len(inputs)}/{data_len} ({100. * (batch_num+1) / len(test_loader):.2f}%)]\tPER: {per:.6f}")
 
     print('Average PER: {}%'.format(sum(phon_err_rates) / len(phon_err_rates) * 100))
 
@@ -140,6 +145,11 @@ def timit_decode(log_probs, target_len, transformer):
 
     phon_indices = torch.argmax(log_probs, dim=1)
     return transformer.target_to_text(phon_indices[:target_len])
+    
+def alignment_error_rate(guess, truth):
+    # TODO: implement Alignment Error Rate for TIMIT dataset, can use entire TRAIN/TEST since alignment is not "trainied" on anything
+    # Take end times of words, compute percent difference, average them
+    raise NotImplementedError()
 
 def phoneme_error_rate(guess, truth):
     """Phoneme Error Rate of sequence"""

@@ -244,7 +244,6 @@ def waveform_time_to_spec_time(t, spectrogram_len, mel_spectrogram):
 
     hop_length, window_length = mel_spectrogram.hop_length, mel_spectrogram.win_length
     for hop in range(spectrogram_len):
-        # TODO: retrain given that we forgot to divide by 2
         if t <= hop * hop_length + window_length / 2 and t >= hop * hop_length - window_length / 2:
             # As a convention, we will use the first hop that covers t, even though multiple may cover it as well
             return hop

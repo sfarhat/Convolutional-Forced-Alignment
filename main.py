@@ -71,13 +71,13 @@ def main():
         waveform, _ = torchaudio.load(hparams['sample_path'])
         input, _ = preprocess_single_waveform(waveform, hparams['n_mels'])
         show_activation_map(net, device, input, [1, 2, 10])
-    elif hparams['mode'] == 'lyricism':
+    elif hparams['mode'] == 'align':
         waveform, _ = torchaudio.load(hparams['sample_path'])
         input, spectrogram = preprocess_single_waveform(waveform, hparams['n_mels'])
         transcript = get_lyrics(hparams['sample_transcript'], timit=True)
         force_align(net, transformer, device, input, transcript, spectrogram)
     else:
-        raise Exception('Not a valid mode. Please choose between \'train\', \'test\', \'cam\', or \'lyricism\'.')
+        raise Exception('Not a valid mode. Please choose between \'train\', \'test\', \'cam\', or \'align\'.')
 
 if __name__ == '__main__':
     main()
