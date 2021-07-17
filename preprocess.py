@@ -120,7 +120,7 @@ def preprocess_single_waveform(waveform, n_mels):
     features = features_from_waveform(waveform, mel_spectrogram)
 
     # Returns features of shape channel x features x time
-    return features.unsqueeze(0)
+    return features.unsqueeze(0), mel_spectrogram
 
 def features_from_waveform(waveform, mel_spectrogram):
     """Generate features from an audio waveform.

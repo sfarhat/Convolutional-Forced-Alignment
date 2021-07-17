@@ -147,3 +147,36 @@ Did this work? Was my logic correct? Yes and yes. Below is the modified GRAD-CAM
 Sometimes, the ReLU'd activations end up just giving us an all 0 activation map. In addition, there seems to be high variance among the cams that are combined across neighboring timesteps, so certain classes will make other classes' cams disappear in the final result. Normalizing each one before combining will alleviate this problem.
 
 A nice side-effect of this is that now we actually get interpretability in CTC! How? Well, with this modified GRAD-CAM, we can generate activation maps for sequential outputs, which CTC generates. The difference, still, is that knowing which classes to generate these CAMs wrt is not immediately clear? Should it be the greedy decoding result? The beam-searched result? These are options left open and could lead to varyingly successful results. Whatever though, our method makes it clear which classes they should be: the greedy one is the optimal alignment.
+
+**7/16**
+
+With GRAD-CAM done, I could focus my efforts on the final problem where everything began: forced alignment. With the output of the model being a phonetic transcript of the audio, the motivating question became: *how can we learn word boundaries*?
+
+Normally, as is usually done in the literature, a phoneme-to-word model is the move here. However, I had decided to forgo a this approach, not for a mathematical reason, but because I thought of a simpler way (though it may be worth later trying the phoneme-to-word and calculating the WER). My approach, though, did use a word-to-phoneme model since that was easily implmeneted. Using the CMU Pronuncaton dictionary that utilizes ARPABET (that closely resembles TIMIT), my "word-boundary-finding" algorithm relied on the Levenshtein distance.
+
+To put it simply, I computed the edit distance between our guessed transcript (39-phonemes, collapsed repeats similar to the original TIMIT phoneme transcripts), and compared that to the ground truth phonetic transcript. The pronunciation dictionary was the MVP here when it came to genereating the ground truth transcrpits: iterate over each word, get a pronunciation (for now, I arbitrarily chose the first one), and separate them by `<sp>` tokens. Compute the edit distance, which generates the edit path as a byproduct, find the index where the `<sp>` should be aligned with our guess, and insert them there. With the spaces between the appropriate phonemes, all we had to do was re-expand this transcript with the durations we had from the model output, and there we have it: a transcript with phoneme accuracy/duration and word boundaries.
+
+The very last step was to get the waveform times for the alignment, since our transcript is mapping each spectrogram-timestep to a phoneme, but recall that our original ORIGINAL input was a waveform. This was just some reverse math for what we did earlier in preprocessing going from waveform to spectrogram. (Side note, when reviewing my old math, I did notice a math bug in our code for preprocessing, so I need to retrain bleh).
+
+And voila! Forced alignment complete! In addition, with the locations of the spaces in the transcript, I can also plug that into our GRAD-CAM pipeline to see the heatmap for an entire word. At the moment, I don't have a error metric for how good our alignments are. For now, I'm thinking to do something like an Alignment Error Rate which would be an averaged percent difference between the alignment times (I'll use only the end times since ends of previous words correspond to starts of the next, so it'd be redudant. In addition, I am omittnig the error for the end of the last word since I don't reeeally care when we say the last word ends, only when it starts, and that's covered by the end of the second-to-last word.) Here is an example: 
+
+    Results for sample TRAIN/DR4/MESG0/SX72 in TIMIT
+
+    Our guess:
+    [{'word': 'spring', 'start': 0, 'end': 8000}, 
+    {'word': 'street', 'start': 8000, 'end': 13600}, 
+    {'word': 'is', 'start': 13600, 'end': 14200}, 
+    {'word': 'straight', 'start': 14200, 'end': 19400}, 
+    {'word': 'ahead', 'start': 19400, 'end': 27000}]
+
+    Ground truth:
+    2180 8290 spring
+    8290 13451 street
+    13451 15960 is
+    15960 19520 straight
+    19520 25140 ahead
+
+    Alignment Error Rate (AER): 4.06%
+    
+
+Aside from the small edge cases for the beginning of the first word and end of the last, they're pretty close! For a method where I ~~cut a lot of corners~~ used heuristics, I think this does a good job. I should probably make a note of all the heuristic liberties I took for thoroughness... 

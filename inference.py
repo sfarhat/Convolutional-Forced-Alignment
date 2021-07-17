@@ -1,9 +1,11 @@
+from typing import final
 import torch
 from ctcdecode import CTCBeamDecoder
 from grad_cam import Sequential_GRAD_CAM
 import matplotlib.pyplot as plt
 from loss import calculate_loss
 from pronouncing import generate_spaces_in_guess, pronunciation_model
+from dataset_utils import spec_time_to_waveform_time, SPACE_TOKEN
 
 def test(model, test_loader, criterion, device, transformer):
     """
@@ -63,7 +65,7 @@ def show_activation_map(model, device, input, desired_phone_indices):
 
     guessed_labels = torch.argmax(log_probs, dim=1)
 
-    # guessed_indices don't requires_grad, so we index into log_probs to get target_classes
+    # guessed_labels don't requires_grad, so we index into log_probs to get target_classes
     target_classes = gcam.get_target_classes(log_probs, guessed_labels, desired_phone_indices)
     # Squeeze out batch and channel dimensions when providing interpolation size
     cam = gcam.generate_cam(input.squeeze(0).squeeze(0).shape, target_classes)
@@ -75,9 +77,18 @@ def show_activation_map(model, device, input, desired_phone_indices):
     plt.savefig('cam.png')
     plt.show()
 
-    # TODO: if we want to do something wih this + forced alignment, use time transformation function to go back to waveform time
+def force_align(model, transformer, device, input, transcript, spectrogram):
+    """(Pseudo-)Force aligns waveform with transcript on a word-level by using Levenshtein distance to compute where
+    word separations belong in generated phonetic transcript.
 
-def force_align(model, transformer, device, input, transcript):
+    Args:
+        model ([type]): [description]
+        transformer ([type]): [description]
+        device ([type]): [description]
+        input ([type]): [description]
+        transcript (list): List of words making up transcript 
+        spectrogram ([type]): [description]
+    """
 
     pronounced_transcript = pronunciation_model(transcript, transformer)
 
@@ -87,12 +98,42 @@ def force_align(model, transformer, device, input, transcript):
 
     # Must do int -> 39 txt phones -> collapsing repeats
     # Going from int to 39 can introduce extra repeats as well
-    guess = collapse_repeats(transformer.target_to_text(guessed_labels))
+    guess_pre_collapsing = transformer.target_to_text(guessed_labels)
+    guess = collapse_repeats(guess_pre_collapsing)
+    # TODO: remove sil since ARPABET doesn't have them? would require more work in re-expansion later
 
     path = edit_distance_path(guess, pronounced_transcript)
 
-    guess_with_spaces, space_indices = generate_spaces_in_guess(guess, pronounced_transcript, path)
-    print(guess_with_spaces)
+    guess_with_spaces = generate_spaces_in_guess(guess, pronounced_transcript, path)
+
+    # Re-extend guess with repeats to map space_indices to waveform times
+
+    # Want space indices wrt length of original transcript
+    space_indices = []
+    pre_collapsed_idx = 0
+    for phon in guess_with_spaces:
+        if phon == SPACE_TOKEN:
+            space_indices.append(pre_collapsed_idx)
+            continue
+        while pre_collapsed_idx < len(guess_pre_collapsing) and phon == guess_pre_collapsing[pre_collapsed_idx]:
+            pre_collapsed_idx += 1
+
+    # TODO: pass desired words into CAM generator via space_indices since they're in spectrogram space
+
+    word_alignments = []
+
+    # split true transcript into words, use that to index into space_indices to get start and end
+    # TODO: there is a space at the very end, leads to ending of final word to be out of bounds
+    end, prev_end = 0, 0
+    for i in range(len(transcript)):
+        end = spec_time_to_waveform_time(space_indices[i], spectrogram)
+        word_alignment = {'word': transcript[i], 'start': prev_end, 'end': end}
+        word_alignments.append(word_alignment)
+        prev_end = end
+
+    print(word_alignments)
+
+    return word_alignments
 
 def timit_decode(log_probs, target_len, transformer):
     """Generates 39-label phoneme sequence from output of network for a single sample"""

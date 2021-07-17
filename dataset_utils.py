@@ -3,6 +3,8 @@ from torch.utils.data import Dataset
 import torchaudio
 import os
 
+SPACE_TOKEN = '<sp>'
+
 class PhonemeTransformer:
 
     def __init__(self):
@@ -70,7 +72,7 @@ class PhonemeTransformer:
             'y': 'y', 	
             'z': 'z', 	
             'zh': 'sh',
-            '<sp>': '<sp>'
+            SPACE_TOKEN: SPACE_TOKEN
         } 
 
         # if self.collapse:
@@ -214,7 +216,7 @@ class TIMITDataset(Dataset):
                 
         return list(paths)
 
-def create_timit_target(phonemes, transcript_len, mel_spectrogram):
+def create_timit_target(phonemes, spectrogram_len, mel_spectrogram):
     """Creates target transcript given phonemes and respective durations.
        Example: 'she' w/ 5 timesteps, 'sh' from [0-2], 'ix' from [3-4] -> ['sh', 'sh', 'sh', 'ix', 'ix']
 
@@ -229,22 +231,29 @@ def create_timit_target(phonemes, transcript_len, mel_spectrogram):
     target = []
 
     for phoneme_details in phonemes:
-        phon_start = waveform_time_to_spec_time(int(phoneme_details['start']), transcript_len, mel_spectrogram)
-        phon_end = waveform_time_to_spec_time(int(phoneme_details['end']), transcript_len, mel_spectrogram)
+        phon_start = waveform_time_to_spec_time(int(phoneme_details['start']), spectrogram_len, mel_spectrogram)
+        phon_end = waveform_time_to_spec_time(int(phoneme_details['end']), spectrogram_len, mel_spectrogram)
         phoneme = phoneme_details['phoneme']
 
         target.extend([phoneme] * (phon_end - phon_start))
 
     return target
 
-def waveform_time_to_spec_time(t, transcript_len, mel_spectrogram):
+def waveform_time_to_spec_time(t, spectrogram_len, mel_spectrogram):
     """Converts time in waveform space to time in spectrogram space given parameters of STFT"""
 
     hop_length, window_length = mel_spectrogram.hop_length, mel_spectrogram.win_length
-    for hop in range(transcript_len):
-        if t <= hop * hop_length + window_length and t >= hop * hop_length - window_length:
+    for hop in range(spectrogram_len):
+        # TODO: retrain given that we forgot to divide by 2
+        if t <= hop * hop_length + window_length / 2 and t >= hop * hop_length - window_length / 2:
             # As a convention, we will use the first hop that covers t, even though multiple may cover it as well
             return hop
+
+def spec_time_to_waveform_time(tau, mel_spectrogram):
+    # Use parameters to find range of t that each tau corresponds to, use middle value (heuristic)
+
+    hop_length = mel_spectrogram.hop_length
+    return tau * hop_length
 
 class TextTransformer:
     """Handles all transformations bewteen text strings and integer equivalents"""
