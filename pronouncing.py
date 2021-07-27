@@ -9,28 +9,31 @@ from dataset_utils import SPACE_TOKEN
 
 cmu_d = cmudict.dict()
 
-def get_lyrics(fname, timit=False):
+def get_lyrics(fname):
 
     final_lyrics = []
     
     with open(fname, "r") as f:
         lyrics = f.read().lower()
-        lyrics = re.sub(r"[\"(),.?!\-]", "", lyrics).split('\n')
+        lyrics = re.sub(r"[\"(),.;?!\-]", "", lyrics).split('\n')
         for line in lyrics:
             words = line.split()
             final_lyrics.extend(words)
             
-    if timit:
-        # Temporary slicing for TIMIT transcripts having timsteps at beginning
-        return final_lyrics[2:]
-    else:
-        return final_lyrics
+    final_lyrics
 
 def pronunciation_model(transcript, transformer):
 
     p = []
     for word in transcript:
+        word = (re.sub(r"[\"(),.?;!\-]", "", word)).lower()
         # Remove stress numbers
+        # TODO: words not in dictionary throw error
+        if word not in cmu_d:
+            # word still appears in alignment dictionary and so will look for spaces to map to, what should we do here?
+            # TODO: this is still an edge case that can break things pretty badly
+            p.append(SPACE_TOKEN)
+            continue
         p_with_stresses = cmu_d[word][0]
         for phon in p_with_stresses:
             p.append(re.sub(r"[0-9]", "", phon).lower())

@@ -8,12 +8,13 @@ hparams = {
     'SGD_l2_penalty': 1e-5,
     'weights_init_a': -0.05,
     'weights_init_b': 0.05,
-    'epochs': 15,
+    'epochs': 30,
     'activation': 'prelu',
     'n_mels': 40,
-    'start_epoch': 14,
-    'mode': 'lyricism',
+    'start_epoch': 15,
+    'mode': 'test-align',
     'dataset': 'TIMIT',
-    'sample_path': '/mnt/d/Datasets/timit/data/TRAIN/DR4/MESG0/SX72.WAV',
-    'sample_transcript': '/mnt/d/Datasets/timit/data/TRAIN/DR4/MESG0/SX72.TXT'
+    'sample_path': '',
+    'sample_transcript': '',
+    'timit_sample_path': '/mnt/d/Datasets/timit/data/TRAIN/DR5/FKKH0/SX390' 
 }

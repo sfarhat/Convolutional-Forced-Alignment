@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torchaudio
-from dataset_utils import create_timit_target, PhonemeTransformer, TextTransformer
+from dataset_utils import create_timit_target, PhonemeTransformer, TextTransformer, get_phoneme_timestamp_information
 
 class LibrispeechCollator(object):
 
@@ -83,7 +83,7 @@ class TIMITCollator(object):
     def __call__(self, batch):
         return self.preprocess_timit(batch)
 
-    def preprocess_timit(self, dataset):
+    def preprocess_timit(self, batch):
 
         inputs = [] 
         input_lengths = []
@@ -91,17 +91,17 @@ class TIMITCollator(object):
         target_lengths = []
 
         # Put this here instead of in features_from_waveform() becuase its parameters needed for transcript creation
-        mel_spectrogram = torchaudio.transforms.MelSpectrogram(n_mels=self.n_mels)
+        spectrogram_generator = torchaudio.transforms.MelSpectrogram(n_mels=self.n_mels)
 
-        for sample in dataset:
+        for sample in batch:
             waveform, phonemes = sample['audio'], sample['phonemes']
-            features = features_from_waveform(waveform, mel_spectrogram).transpose(0, 1)
+            features = features_from_waveform(waveform, spectrogram_generator).transpose(0, 1)
             inputs.append(features)
 
             input_lengths.append(features.shape[0])
 
-            target = create_timit_target(phonemes, features.shape[0], mel_spectrogram)
-            converted_target = self.transformer.phone_to_int(target)
+            target_with_duration, target_without_duration = create_timit_target(phonemes, features.shape[0], spectrogram_generator)
+            converted_target = self.transformer.phone_to_int(target_with_duration)
             targets.append(converted_target)
             
             target_lengths.append(len(converted_target))
@@ -113,16 +113,53 @@ class TIMITCollator(object):
         # Only returning input_lengths to keep training code general and clean, improve when you can...
         return (inputs, input_lengths, targets, target_lengths)
 
+class TIMITAlignmentCollator(object):
+
+    def __init__(self, n_mels, transformer):
+        self.n_mels = n_mels
+        self.transformer = transformer
+        if not isinstance(self.transformer, PhonemeTransformer):
+            raise TypeError('TIMIT must use a PhonemeTransformer, but it was given a ' + type(self.transformer))
+
+    def __call__(self, batch):
+        return self.preprocess_timit(batch)
+
+    def preprocess_timit(self, batch):
+
+        inputs = [] 
+        samples = []
+
+        # Put this here instead of in features_from_waveform() becuase its parameters needed for transcript creation
+        spectrogram_generator = torchaudio.transforms.MelSpectrogram(n_mels=self.n_mels)
+
+        for sample in batch:
+            waveform, phonemes = sample['audio'], sample['phonemes']
+            features = features_from_waveform(waveform, spectrogram_generator).transpose(0, 1)
+            inputs.append(features)
+            samples.append(sample)
+
+        inputs = nn.utils.rnn.pad_sequence(inputs, batch_first=True).unsqueeze(1).transpose(2, 3) 
+
+        return inputs, samples, spectrogram_generator
+
 def preprocess_single_waveform(waveform, n_mels):
 
-    mel_spectrogram = torchaudio.transforms.MelSpectrogram(n_mels=n_mels)
+    spectrogram_generator = torchaudio.transforms.MelSpectrogram(n_mels=n_mels)
 
-    features = features_from_waveform(waveform, mel_spectrogram)
+    if len(waveform.shape) > 1:
+        # dual channel edge case
+        waveform = waveform[0]
+
+    features = features_from_waveform(waveform, spectrogram_generator)
+
+    # phonetic_information = get_phoneme_timestamp_information(timit_sample_path)
+
+    # target_with_duration, target_without_duration = create_timit_target(phonetic_information, features.shape[1], spectrogram_generator)
 
     # Returns features of shape channel x features x time
-    return features.unsqueeze(0), mel_spectrogram
+    return features.unsqueeze(0), spectrogram_generator
 
-def features_from_waveform(waveform, mel_spectrogram):
+def features_from_waveform(waveform, spectrogram_generator):
     """Generate features from an audio waveform.
 
     Raw audio is transformed into 40-dimensional log mel-filter-bank coefficients with deltas and delta-deltas, which reasults in 120 dimensional features.
@@ -144,7 +181,7 @@ def features_from_waveform(waveform, mel_spectrogram):
     # Takes in audio of shape (..., time) returns (..., n_mels, new_time) where n_mels defaults to 128
     log_offset = 1e-6
     # adding offset because log(0) is nan, led to inputs becoming nan -> nan ouputs -> nan loss
-    log_mel_spectrogram = torch.log(mel_spectrogram(data) + log_offset)
+    log_mel_spectrogram = torch.log(spectrogram_generator(data) + log_offset)
     # Takes in audio of shape (..., time) returns (..., n_mfcc, new_time) where n_mfcc defaults to 40
     # mfcc_features = torchaudio.transforms.MFCC(n_mfcc=n_mfcc, log_mels=True)(data) 
     deltas = torchaudio.functional.compute_deltas(log_mel_spectrogram)

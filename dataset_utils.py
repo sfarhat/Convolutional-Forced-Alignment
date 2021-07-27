@@ -161,36 +161,16 @@ class TIMITDataset(Dataset):
         }
         """
 
-        path = self.prefix_paths[idx]
+        sample_path = self.prefix_paths[idx]
 
         sample = {'audio': [], 'phonemes': [], 'words': [], 'transcript': ''}
         
-        wavpath = path + '.WAV'
+        wavpath = sample_path + '.WAV'
         waveform, sr = torchaudio.load(wavpath)
         sample['audio'] = waveform
-
-        wrdpath = path + '.WRD'
-        with open(wrdpath) as f:
-            for line in f.read().splitlines():
-                word_details = {}
-                # start_index | end_index | word
-                word_details['start'], word_details['end'], word_details['word'] = line.split(' ')
-                sample['words'].append(word_details)
-
-        txtpath = path + '.TXT'
-        with open(txtpath) as f:
-            for line in f.read().splitlines():
-                # start_index | end_index | transcript
-                transcript = ' '.join(line.split(' ')[2:])
-                sample['transcript'] = transcript
-
-        phnpath = path + '.PHN'
-        with open(phnpath) as f:
-            for line in f.read().splitlines():
-                phonetic_details = {}
-                # start_index | end_index | phoneme
-                phonetic_details['start'], phonetic_details['end'], phonetic_details['phoneme'] = line.split(' ')
-                sample['phonemes'].append(phonetic_details)
+        sample['words'] = get_word_timestamp_information(sample_path)
+        sample['transcript'] = get_transcript(sample_path)
+        sample['phonemes'] = get_phoneme_timestamp_information(sample_path)
 
         return sample
 
@@ -216,7 +196,49 @@ class TIMITDataset(Dataset):
                 
         return list(paths)
 
-def create_timit_target(phonemes, spectrogram_len, mel_spectrogram):
+def get_word_timestamp_information(sample_path):
+
+    wrdpath = sample_path + '.WRD'
+    all_word_details = []
+
+    with open(wrdpath) as f:
+        for line in f.read().splitlines():
+            word_details = {}
+            # start_index | end_index | word
+            word_details['start'], word_details['end'], word_details['word'] = line.split(' ')
+            word_details['start'] = int(word_details['start'])
+            word_details['end'] = int(word_details['end'])
+            all_word_details.append(word_details)
+
+    return all_word_details
+
+def get_transcript(sample_path):
+
+    txtpath = sample_path + '.TXT'
+    with open(txtpath) as f:
+        for line in f.read().splitlines():
+            # start_index | end_index | transcript
+            # transcript = ' '.join(line.split(' ')[2:])
+            transcript = line.split()[2:]
+            return transcript
+
+def get_phoneme_timestamp_information(sample_path):
+
+    phnpath = sample_path + '.PHN'
+    all_phon_details = []
+
+    with open(phnpath) as f:
+        for line in f.read().splitlines():
+            phonetic_details = {}
+            # start_index | end_index | phoneme
+            phonetic_details['start'], phonetic_details['end'], phonetic_details['phoneme'] = line.split(' ')
+            phonetic_details['start'] = int(phonetic_details['start'])
+            phonetic_details['end'] = int(phonetic_details['end'])
+            all_phon_details.append(phonetic_details)
+
+    return all_phon_details
+
+def create_timit_target(phonemes, spectrogram_len, spectrogram_generator):
     """Creates target transcript given phonemes and respective durations.
        Example: 'she' w/ 5 timesteps, 'sh' from [0-2], 'ix' from [3-4] -> ['sh', 'sh', 'sh', 'ix', 'ix']
 
@@ -228,30 +250,32 @@ def create_timit_target(phonemes, spectrogram_len, mel_spectrogram):
     Returns:
         list: Target transcript of length transcript_len
     """
+    target_with_duration = []
     target = []
 
     for phoneme_details in phonemes:
-        phon_start = waveform_time_to_spec_time(int(phoneme_details['start']), spectrogram_len, mel_spectrogram)
-        phon_end = waveform_time_to_spec_time(int(phoneme_details['end']), spectrogram_len, mel_spectrogram)
+        phon_start = waveform_time_to_spec_time(phoneme_details['start'], spectrogram_len, spectrogram_generator)
+        phon_end = waveform_time_to_spec_time(phoneme_details['end'], spectrogram_len, spectrogram_generator)
         phoneme = phoneme_details['phoneme']
 
-        target.extend([phoneme] * (phon_end - phon_start))
+        target_with_duration.extend([phoneme] * (phon_end - phon_start))
+        target.append(phoneme)
 
-    return target
+    return target_with_duration, target
 
-def waveform_time_to_spec_time(t, spectrogram_len, mel_spectrogram):
+def waveform_time_to_spec_time(t, spectrogram_len, spectrogram_generator):
     """Converts time in waveform space to time in spectrogram space given parameters of STFT"""
 
-    hop_length, window_length = mel_spectrogram.hop_length, mel_spectrogram.win_length
+    hop_length, window_length = spectrogram_generator.hop_length, spectrogram_generator.win_length
     for hop in range(spectrogram_len):
         if t <= hop * hop_length + window_length / 2 and t >= hop * hop_length - window_length / 2:
             # As a convention, we will use the first hop that covers t, even though multiple may cover it as well
             return hop
 
-def spec_time_to_waveform_time(tau, mel_spectrogram):
+def spec_time_to_waveform_time(tau, spectrogram_generator):
     # Use parameters to find range of t that each tau corresponds to, use middle value (heuristic)
 
-    hop_length = mel_spectrogram.hop_length
+    hop_length = spectrogram_generator.hop_length
     return tau * hop_length
 
 class TextTransformer:

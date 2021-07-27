@@ -8,7 +8,7 @@ from loss import calculate_loss
 from pronouncing import generate_spaces_in_guess, pronunciation_model
 from dataset_utils import spec_time_to_waveform_time, SPACE_TOKEN
 
-def test(model, test_loader, criterion, device, transformer):
+def test_accuracy(model, test_loader, criterion, device, transformer):
     """
     Evaluation for model.
 
@@ -42,11 +42,42 @@ def test(model, test_loader, criterion, device, transformer):
                 per = phoneme_error_rate(guessed_text, true_text).item()
                 phon_err_rates.append(per)
 
-
-
                 print(f"[{(batch_num+1) * len(inputs)}/{data_len} ({100. * (batch_num+1) / len(test_loader):.2f}%)]\tPER: {per:.6f}")
 
-    print('Average PER: {}%'.format(sum(phon_err_rates) / len(phon_err_rates) * 100))
+    avg_per = sum(phon_err_rates) / len(phon_err_rates) * 100
+
+    print('Average PER: {}%'.format(avg_per))
+
+    return avg_per
+
+def test_alignment(model, loader, device, transformer):
+
+    model.eval()
+    data_len = len(loader.dataset)
+
+    with torch.no_grad():
+        alignment_err_rates = []
+        for batch_num, data in enumerate(loader):
+            
+            inputs, samples, spectrogram_generator = data
+            # Loaded w/o collator, so we get sample with
+            # sample = {'audio': [], 'phonemes': [], 'words': [], 'transcript': ''}
+
+            for input, sample in zip(inputs, samples):
+
+                guessed_word_alignments = force_align(model, transformer, device, input, spectrogram_generator, sample['transcript'])
+                true_word_alignments = sample['words'] 
+
+                aer = alignment_error_rate(guessed_word_alignments, true_word_alignments)
+                alignment_err_rates.append(aer)
+
+                print(f"[{(batch_num+1) * len(inputs)}/{data_len} ({100. * (batch_num+1) / len(loader):.2f}%)]\tAER: {aer:.6f}")
+
+    avg_aer = sum(alignment_err_rates) / len(alignment_err_rates) * 100
+
+    print('Average AER: {}%'.format(avg_aer))
+
+    return avg_aer
 
 def show_activation_map(model, device, input, desired_phone_indices):
     """Creates and displays an activation map using GRAD-CAM on top of an input spectrogram. Given that in our model the time dimension exists, a target class (desired phoneme)
@@ -84,7 +115,7 @@ def show_activation_map(model, device, input, desired_phone_indices):
     plt.savefig('cam.png')
     plt.show()
 
-def force_align(model, transformer, device, input, transcript, spectrogram):
+def force_align(model, transformer, device, input, spectrogram_generator, transcript):
     """(Pseudo-)Force aligns waveform with transcript on a word-level by using Levenshtein distance to compute where
     word separations belong in generated phonetic transcript.
 
@@ -133,12 +164,10 @@ def force_align(model, transformer, device, input, transcript, spectrogram):
     # TODO: there is a space at the very end, leads to ending of final word to be out of bounds
     end, prev_end = 0, 0
     for i in range(len(transcript)):
-        end = spec_time_to_waveform_time(space_indices[i], spectrogram) / 16500
+        end = spec_time_to_waveform_time(space_indices[i], spectrogram_generator)
         word_alignment = {'word': transcript[i], 'start': prev_end, 'end': end}
         word_alignments.append(word_alignment)
         prev_end = end
-
-    print(word_alignments)
 
     return word_alignments
 
@@ -149,9 +178,22 @@ def timit_decode(log_probs, target_len, transformer):
     return transformer.target_to_text(phon_indices[:target_len])
     
 def alignment_error_rate(guess, truth):
-    # TODO: implement Alignment Error Rate for TIMIT dataset, can use entire TRAIN/TEST since alignment is not "trainied" on anything
     # Take end times of words, compute percent difference, average them
-    raise NotImplementedError()
+
+    error = 0
+
+    # Don't need to do last word
+    num_words = len(guess) - 1
+    for i in range(num_words):
+        guess_end = guess[i]['end'] / 16500
+        true_end = truth[i]['end'] / 16500
+
+        diff = abs(guess_end - true_end) / true_end
+        error += diff
+
+    aer = error / num_words
+
+    return aer
 
 def phoneme_error_rate(guess, truth):
     """Phoneme Error Rate of sequence"""
