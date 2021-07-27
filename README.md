@@ -180,3 +180,9 @@ And voila! Forced alignment complete! In addition, with the locations of the spa
     
 
 Aside from the small edge cases for the beginning of the first word and end of the last, they're pretty close! For a method where I ~~cut a lot of corners~~ used heuristics, I think this does a good job. I should probably make a note of all the heuristic liberties I took for thoroughness... 
+
+**7/26**
+
+ A little disappointment today: I was double checking my math and there was a teensy little bug in my Phoneme Error Rate math. Turns out the actual PER was around `33%` if we collapse the results, but `22.8%` if we do pre-collapsing edit distance. Perhaps I should straight up just do a  Sad, but I can't complain about results. Maybe it'll be a good idea to retrain the network for longer to bring that error down, but for the most part, it seems that it won't be getting that much better of a performance over CTC. Instead, I think it's important for us to focus on all the features added to the network by not using CTC.
+
+ On a progress note, I've started writing things up in a preprint, which has helped me organize my thoughts and think about how I want to tell the story. So this README will be updated less frequently as I'm writing a lot of things there.

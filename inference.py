@@ -42,6 +42,8 @@ def test(model, test_loader, criterion, device, transformer):
                 per = phoneme_error_rate(guessed_text, true_text).item()
                 phon_err_rates.append(per)
 
+
+
                 print(f"[{(batch_num+1) * len(inputs)}/{data_len} ({100. * (batch_num+1) / len(test_loader):.2f}%)]\tPER: {per:.6f}")
 
     print('Average PER: {}%'.format(sum(phon_err_rates) / len(phon_err_rates) * 100))
@@ -131,7 +133,7 @@ def force_align(model, transformer, device, input, transcript, spectrogram):
     # TODO: there is a space at the very end, leads to ending of final word to be out of bounds
     end, prev_end = 0, 0
     for i in range(len(transcript)):
-        end = spec_time_to_waveform_time(space_indices[i], spectrogram)
+        end = spec_time_to_waveform_time(space_indices[i], spectrogram) / 16500
         word_alignment = {'word': transcript[i], 'start': prev_end, 'end': end}
         word_alignments.append(word_alignment)
         prev_end = end
@@ -155,9 +157,17 @@ def phoneme_error_rate(guess, truth):
     """Phoneme Error Rate of sequence"""
 
     collapsed_guess, collapsed_true = collapse_repeats(guess), collapse_repeats(truth)
-    levenshtein_dist = edit_distance(collapsed_guess, collapsed_true)
+    # levenshtein_dist = edit_distance(collapsed_guess, collapsed_true)
+    # per = levenshtein_dist / len(collapsed_true)
+
+    levenshtein_dist = edit_distance(guess, truth)
+    per = levenshtein_dist / len(truth)
+
+    # if per > .4:
+    #     print(collapsed_guess)
+    #     print(collapsed_true)
     
-    return levenshtein_dist / len(truth)
+    return per
 
 def collapse_repeats(sequence):
     """Collapse repeats from sequence to be used for PER"""
