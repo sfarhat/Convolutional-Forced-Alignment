@@ -76,7 +76,7 @@ def test_alignment(model, loader, device, transformer):
 
     print('Average AE: {}%'.format(avg_ae))
 
-    return avg_aer
+    return avg_ae
 
 def show_activation_map(model, device, input, desired_phone_indices):
     """Creates and displays an activation map using GRAD-CAM on top of an input spectrogram. Given that in our model the time dimension exists, a target class (desired phoneme)
@@ -154,7 +154,21 @@ def force_align(model, transformer, device, input, spectrogram_generator, transc
         while pre_collapsed_idx < len(guess_pre_collapsing) and phon == guess_pre_collapsing[pre_collapsed_idx]:
             pre_collapsed_idx += 1
 
+    print(space_indices)
+
     # TODO: pass desired words into CAM generator via space_indices since they're in spectrogram space
+    desired_cam_range = list(range(space_indices[0], space_indices[1]))
+    desired_cam_indices = [] 
+    prev = None
+    num_phones_seen = -1
+    for phon_idx, phon in enumerate(guess_pre_collapsing):
+        if phon != prev:
+            num_phones_seen += 1
+        if phon_idx in desired_cam_range and num_phones_seen not in desired_cam_indices:
+            desired_cam_indices.append(num_phones_seen)
+        prev = phon
+    # squeezing necessary since it is unsqueezed again in this fn, super clean lmao
+    show_activation_map(model, device, input.squeeze(0), desired_cam_indices)
 
     word_alignments = []
 
@@ -166,7 +180,8 @@ def force_align(model, transformer, device, input, spectrogram_generator, transc
         word_alignment = {'word': transcript[i], 'start': prev_end, 'end': end}
         word_alignments.append(word_alignment)
         prev_end = end
-
+        
+    print(word_alignments)
     return word_alignments
 
 def timit_decode(log_probs, target_len, transformer):

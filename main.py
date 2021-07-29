@@ -73,7 +73,15 @@ def main():
         input, _ = preprocess_single_waveform(waveform, hparams['n_mels'])
         show_activation_map(net, device, input, [1, 2, 10])
     elif hparams['mode'] == 'align':
-        waveform, _ = torchaudio.load(hparams['sample_path'])
+        if hparams['timit_sample_path'] == '':
+            audio_path = hparams['sample_path']
+            transcript_path = hparams['sample_transcript']
+        else:
+            audio_path = hparams['timit_sample_path'] + '.WAV'
+            transcript_path = hparams['timit_sample_path'] + '.TXT'
+
+        waveform, _ = torchaudio.load(audio_path)
+        transcript = get_lyrics(transcript_path, timit=(hparams['timit_sample_path'] != ''))
         # plt.plot(waveform[0])
         # plt.savefig('waveform.png')
         # plt.show()
@@ -81,7 +89,6 @@ def main():
         # plt.imshow(input.permute(1, 2, 0))
         # plt.savefig('spectrogram.png')
         # plt.show()
-        transcript = get_lyrics(hparams['sample_transcript'])
         force_align(net, transformer, device, input, spectrogram_generator, transcript)
     elif hparams['mode'] == 'test-align':
         alignment_collator = TIMITAlignmentCollator(hparams['n_mels'], transformer)

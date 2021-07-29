@@ -9,7 +9,7 @@ from dataset_utils import SPACE_TOKEN
 
 cmu_d = cmudict.dict()
 
-def get_lyrics(fname):
+def get_lyrics(fname, timit=False):
 
     final_lyrics = []
     
@@ -19,8 +19,12 @@ def get_lyrics(fname):
         for line in lyrics:
             words = line.split()
             final_lyrics.extend(words)
-            
-    final_lyrics
+
+    if timit:
+        print(final_lyrics)
+        return final_lyrics[2:]
+    else:        
+        return final_lyrics
 
 def pronunciation_model(transcript, transformer):
 
