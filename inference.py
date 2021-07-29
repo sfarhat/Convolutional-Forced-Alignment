@@ -1,4 +1,3 @@
-import enum
 from typing import final
 import torch
 from ctcdecode import CTCBeamDecoder
@@ -56,7 +55,7 @@ def test_alignment(model, loader, device, transformer):
     data_len = len(loader.dataset)
 
     with torch.no_grad():
-        alignment_err_rates = []
+        alignment_errs = []
         for batch_num, data in enumerate(loader):
             
             inputs, samples, spectrogram_generator = data
@@ -68,14 +67,14 @@ def test_alignment(model, loader, device, transformer):
                 guessed_word_alignments = force_align(model, transformer, device, input, spectrogram_generator, sample['transcript'])
                 true_word_alignments = sample['words'] 
 
-                aer = alignment_error_rate(guessed_word_alignments, true_word_alignments)
-                alignment_err_rates.append(aer)
+                ae = alignment_error(guessed_word_alignments, true_word_alignments)
+                alignment_errs.append(ae)
 
-                print(f"[{(batch_num+1) * len(inputs)}/{data_len} ({100. * (batch_num+1) / len(loader):.2f}%)]\tAER: {aer:.6f}")
+                print(f"[{(batch_num+1) * len(inputs)}/{data_len} ({100. * (batch_num+1) / len(loader):.2f}%)]\tAE: {ae:.6f}")
 
-    avg_aer = sum(alignment_err_rates) / len(alignment_err_rates) * 100
+    avg_ae = sum(alignment_errs) / len(alignment_errs)
 
-    print('Average AER: {}%'.format(avg_aer))
+    print('Average AE: {}%'.format(avg_ae))
 
     return avg_aer
 
@@ -138,7 +137,6 @@ def force_align(model, transformer, device, input, spectrogram_generator, transc
     # Going from int to 39 can introduce extra repeats as well
     guess_pre_collapsing = transformer.target_to_text(guessed_labels)
     guess = collapse_repeats(guess_pre_collapsing)
-    # TODO: remove sil since ARPABET doesn't have them? would require more work in re-expansion later
 
     path = edit_distance_path(guess, pronounced_transcript)
 
@@ -177,8 +175,8 @@ def timit_decode(log_probs, target_len, transformer):
     phon_indices = torch.argmax(log_probs, dim=1)
     return transformer.target_to_text(phon_indices[:target_len])
     
-def alignment_error_rate(guess, truth):
-    # Take end times of words, compute percent difference, average them
+def alignment_error(guess, truth):
+    # Take end times of words, compute difference, average them
 
     error = 0
 
@@ -188,22 +186,22 @@ def alignment_error_rate(guess, truth):
         guess_end = guess[i]['end'] / 16500
         true_end = truth[i]['end'] / 16500
 
-        diff = abs(guess_end - true_end) / true_end
+        diff = abs(guess_end - true_end)
         error += diff
 
-    aer = error / num_words
+    ae = error / num_words
 
-    return aer
+    return ae
 
 def phoneme_error_rate(guess, truth):
     """Phoneme Error Rate of sequence"""
 
     collapsed_guess, collapsed_true = collapse_repeats(guess), collapse_repeats(truth)
-    # levenshtein_dist = edit_distance(collapsed_guess, collapsed_true)
-    # per = levenshtein_dist / len(collapsed_true)
+    levenshtein_dist = edit_distance(collapsed_guess, collapsed_true)
+    per = levenshtein_dist / len(collapsed_true)
 
-    levenshtein_dist = edit_distance(guess, truth)
-    per = levenshtein_dist / len(truth)
+    # levenshtein_dist = edit_distance(guess, truth)
+    # per = levenshtein_dist / len(truth)
 
     # if per > .4:
     #     print(collapsed_guess)

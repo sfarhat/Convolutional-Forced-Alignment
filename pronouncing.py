@@ -28,7 +28,6 @@ def pronunciation_model(transcript, transformer):
     for word in transcript:
         word = (re.sub(r"[\"(),.?;!\-]", "", word)).lower()
         # Remove stress numbers
-        # TODO: words not in dictionary throw error
         if word not in cmu_d:
             # word still appears in alignment dictionary and so will look for spaces to map to, what should we do here?
             # TODO: this is still an edge case that can break things pretty badly
@@ -37,7 +36,6 @@ def pronunciation_model(transcript, transformer):
         p_with_stresses = cmu_d[word][0]
         for phon in p_with_stresses:
             p.append(re.sub(r"[0-9]", "", phon).lower())
-        # TODO: should there be a space after the last word?
         p.append(SPACE_TOKEN)
 
     return transformer.map_to_39(p)
