@@ -206,8 +206,8 @@ def get_word_timestamp_information(sample_path):
             word_details = {}
             # start_index | end_index | word
             word_details['start'], word_details['end'], word_details['word'] = line.split(' ')
-            word_details['start'] = int(word_details['start'])
-            word_details['end'] = int(word_details['end'])
+            word_details['start'] = int(word_details['start']) / 16500
+            word_details['end'] = int(word_details['end']) / 16500
             all_word_details.append(word_details)
 
     return all_word_details

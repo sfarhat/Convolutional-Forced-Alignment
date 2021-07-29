@@ -167,6 +167,7 @@ def force_align(model, transformer, device, input, spectrogram_generator, transc
         if phon_idx in desired_cam_range and num_phones_seen not in desired_cam_indices:
             desired_cam_indices.append(num_phones_seen)
         prev = phon
+
     # squeezing necessary since it is unsqueezed again in this fn, super clean lmao
     show_activation_map(model, device, input.squeeze(0), desired_cam_indices)
 
@@ -176,7 +177,7 @@ def force_align(model, transformer, device, input, spectrogram_generator, transc
     # TODO: there is a space at the very end, leads to ending of final word to be out of bounds
     end, prev_end = 0, 0
     for i in range(len(transcript)):
-        end = spec_time_to_waveform_time(space_indices[i], spectrogram_generator)
+        end = spec_time_to_waveform_time(space_indices[i], spectrogram_generator) / 16500
         word_alignment = {'word': transcript[i], 'start': prev_end, 'end': end}
         word_alignments.append(word_alignment)
         prev_end = end
@@ -198,8 +199,8 @@ def alignment_error(guess, truth):
     # Don't need to do last word
     num_words = len(guess) - 1
     for i in range(num_words):
-        guess_end = guess[i]['end'] / 16500
-        true_end = truth[i]['end'] / 16500
+        guess_end = guess[i]['end']
+        true_end = truth[i]['end']
 
         diff = abs(guess_end - true_end)
         error += diff
