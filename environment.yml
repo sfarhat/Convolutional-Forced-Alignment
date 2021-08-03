@@ -1,0 +1,26 @@
+name: Convolutional Forced Alignment 
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - cudatoolkit=11.0.221=h6bb024c_0
+  - ipykernel=5.3.4=py39hb070fc8_0
+  - ipython=7.21.0=py39hb070fc8_0
+  - ipython_genutils=0.2.0=pyhd3eb1b0_1
+  - jupyter_client=6.1.7=py_0
+  - jupyter_core=4.7.1=py39h06a4308_0
+  - matplotlib=3.3.4=py39h06a4308_0
+  - matplotlib-base=3.3.4=py39h62a2d02_0
+  - numpy=1.20.1=py39hdbf815f_0
+  - pandas=1.2.3=py39ha9443f7_0
+  - pip=21.0.1=py39h06a4308_0
+  - prompt-toolkit=3.0.8=py_0
+  - python=3.9.1=hdb3f193_2
+  - python-dateutil=2.8.1=pyhd3eb1b0_0
+  - python_abi=3.9=1_cp39
+  - pytorch=1.7.1=py3.9_cuda11.0.221_cudnn8.0.5_0
+  - tensorboard=2.4.0=pyhc547734_0
+  - tensorboard-plugin-wit=1.6.0=py_0
+  - torchaudio=0.7.2=py39
+  - torchvision=0.8.2=py39_cu110
