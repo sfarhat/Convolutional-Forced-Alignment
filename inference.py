@@ -56,6 +56,7 @@ def test_alignment(model, loader, device, transformer):
 
     with torch.no_grad():
         alignment_errs = []
+        within_10, within_20, within_30, within_40, within_50 = 0, 0, 0, 0, 0
         for batch_num, data in enumerate(loader):
             
             inputs, samples, spectrogram_generator = data
@@ -72,7 +73,37 @@ def test_alignment(model, loader, device, transformer):
 
                 print(f"[{(batch_num+1) * len(inputs)}/{data_len} ({100. * (batch_num+1) / len(loader):.2f}%)]\tAE: {ae:.6f}")
 
+                if ae <= 0.010:
+                    within_10 += 1
+                    within_20 += 1
+                    within_30 += 1
+                    within_40 += 1
+                    within_50 += 1
+                elif ae <= 0.020:
+                    within_20 += 1
+                    within_30 += 1
+                    within_40 += 1
+                    within_50 += 1
+                elif ae <= 0.030:
+                    within_30 += 1
+                    within_40 += 1
+                    within_50 += 1
+                elif ae <= 0.040:
+                    within_40 += 1
+                    within_50 += 1
+                elif ae <= 0.050:
+                    within_50 += 1
+                else:
+                    pass
+
     avg_ae = sum(alignment_errs) / len(alignment_errs)
+    within_10 = within_10 / len(alignment_errs)
+    within_20 = within_20 / len(alignment_errs)
+    within_30 = within_30 / len(alignment_errs)
+    within_40 = within_40 / len(alignment_errs)
+    within_50 = within_50 / len(alignment_errs)
+
+    print(within_10, within_20, within_30, within_40, within_50)
 
     print('Average AE: {}%'.format(avg_ae))
 
@@ -133,6 +164,8 @@ def force_align(model, transformer, device, input, spectrogram_generator, transc
     log_probs = model(input).squeeze(0)
     guessed_labels = torch.argmax(log_probs, dim=1)
 
+    # print("Guessed transcript")
+
     # Must do int -> 39 txt phones -> collapsing repeats
     # Going from int to 39 can introduce extra repeats as well
     guess_pre_collapsing = transformer.target_to_text(guessed_labels)
@@ -154,22 +187,24 @@ def force_align(model, transformer, device, input, spectrogram_generator, transc
         while pre_collapsed_idx < len(guess_pre_collapsing) and phon == guess_pre_collapsing[pre_collapsed_idx]:
             pre_collapsed_idx += 1
 
-    print(space_indices)
+    # print("Found where spaces belong")
+
+    # print(space_indices)
 
     # TODO: pass desired words into CAM generator via space_indices since they're in spectrogram space
-    desired_cam_range = list(range(space_indices[0], space_indices[1]))
-    desired_cam_indices = [] 
-    prev = None
-    num_phones_seen = -1
-    for phon_idx, phon in enumerate(guess_pre_collapsing):
-        if phon != prev:
-            num_phones_seen += 1
-        if phon_idx in desired_cam_range and num_phones_seen not in desired_cam_indices:
-            desired_cam_indices.append(num_phones_seen)
-        prev = phon
+    # desired_cam_range = list(range(space_indices[0], space_indices[1]))
+    # desired_cam_indices = [] 
+    # prev = None
+    # num_phones_seen = -1
+    # for phon_idx, phon in enumerate(guess_pre_collapsing):
+    #     if phon != prev:
+    #         num_phones_seen += 1
+    #     if phon_idx in desired_cam_range and num_phones_seen not in desired_cam_indices:
+    #         desired_cam_indices.append(num_phones_seen)
+    #     prev = phon
 
-    # squeezing necessary since it is unsqueezed again in this fn, super clean lmao
-    show_activation_map(model, device, input.squeeze(0), desired_cam_indices)
+    # # squeezing necessary since it is unsqueezed again in this fn, super clean lmao
+    # show_activation_map(model, device, input.squeeze(0), desired_cam_indices)
 
     word_alignments = []
 
@@ -177,12 +212,13 @@ def force_align(model, transformer, device, input, spectrogram_generator, transc
     # TODO: there is a space at the very end, leads to ending of final word to be out of bounds
     end, prev_end = 0, 0
     for i in range(len(transcript)):
+        # print("Computing alignment for: ", transcript[i])
         end = spec_time_to_waveform_time(space_indices[i], spectrogram_generator) / 16500
         word_alignment = {'word': transcript[i], 'start': prev_end, 'end': end}
         word_alignments.append(word_alignment)
         prev_end = end
         
-    print(word_alignments)
+    # print(word_alignments)
     return word_alignments
 
 def timit_decode(log_probs, target_len, transformer):

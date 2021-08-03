@@ -185,8 +185,16 @@ Aside from the small edge cases for the beginning of the first word and end of t
 
  A little disappointment today: I was double checking my math and there was a teensy little bug in my Phoneme Error Rate math. Turns out the actual PER was around `33%` if we collapse the results, but `22.8%` if we do pre-collapsing edit distance.  Sad, but I can't complain about results. Maybe it'll be a good idea to retrain the network for longer to bring that error down, but for the most part, it seems that it won't be getting that much better of a performance over CTC. Instead, I think it's important for us to focus on all the features added to the network by not using CTC.
 
- I also implemented the Alignment Error Rate described in the previous update. On the training set, it achieved `7.77\%` while on the test set it got `7.13\%`, for an overall AER of `7.45\%`. So, it seems to be learning word boundaries quite well! Perhaps training more will help with PER, it seems we're good here. The only edge case is that I still need to handle Out of Vocabulary words. Maybe somethting like nearest neighbors kind of thing could work.
+ I also implemented the Alignment Error Rate described in the previous update. On the training set, it achieved `7.77%` while on the test set it got `7.13%`, for an overall AER of `7.45%`. So, it seems to be learning word boundaries quite well! Perhaps training more will help with PER, it seems we're good here. The only edge case is that I still need to handle Out of Vocabulary words. Maybe somethting like nearest neighbors kind of thing could work.
 
  Also, I'm considering implmenting the phoneme-to-word model to get a WER (but I think improving the PER might be a better first step before tackling that). From what I've been reading, it seems that a data-structure approach with the phoneme-to-word dictionary I have is where I should start looking.
 
  On an overall progress note, I've started writing things up in a preprint, which has helped me organize my thoughts and think about how I want to tell the story. So this README will be updated less frequently as I'm writing a lot of things there.
+
+
+ **8/2**
+
+ I'll be shelving this project for now. I accomplished what I set out to do: create a Forced Aligner based off of a Convolutional Neural Network. I've put my ideas altogether in a report that is linked in this repo and will be making it public. This long file will become a story for anybody who's interested in what my thought process was, beginning from knowing next-to-nothing about speech recognition, to finding holes in the current methods, to building an end-to-end system. It was a great learning experience.
+
+ It would be interesting to see a few things if this is ever re-visited: are there architectural changes I could make to improve it? How can we handle out of vocabulary (OOV) words? How does it perform on long inputs such as songs? Maybe one day we'll find out...
+

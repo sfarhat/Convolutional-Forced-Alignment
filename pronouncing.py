@@ -21,7 +21,6 @@ def get_lyrics(fname, timit=False):
             final_lyrics.extend(words)
 
     if timit:
-        print(final_lyrics)
         return final_lyrics[2:]
     else:        
         return final_lyrics

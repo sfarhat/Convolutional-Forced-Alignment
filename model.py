@@ -11,6 +11,11 @@ class Conv_Layer(nn.Module):
         # Math says that we should pad by (kernel_size[0]//2, kernel_size[1]//2) to keep dimensions the same, in our case this is (1, 2)  
         # However, paper says they only pad along time axis, so number of features will decrease 
         self.kernel = kernel
+        # if padding == 'same':
+        #     self.padding = (self.kernel[0] // 2, self.kernel[1] // 2)
+        # elif padding == 'valid':
+        #     self.padding = (0, 0)
+        # else:
         self.padding = (0, self.kernel[1]//2)
         self.stride = stride
 
@@ -127,24 +132,27 @@ class ASR_1(nn.Module):
             # is a good exercise for understanding how CNNs work
             # https://discuss.pytorch.org/t/why-add-an-extra-dimension-to-convolution-layer-weights/86954/2
 
-            self.cnn_layers = nn.Sequential(
-                            Conv_Layer(in_channels=in_dim, out_channels=128, kernel=(3,5), activation=activation, dropout=0, pool=(3,1)),
-                            Conv_Layer(128, 128, (3,5), activation, dropout),
-                            Conv_Layer(128, 128, (3,5), activation, dropout),
-                            Conv_Layer(128, 128, (3,5), activation, dropout),
-                            Conv_Layer(128, 256, (3,5), activation, dropout),
-                            Conv_Layer(256, 256, (3,5), activation, dropout),
-                            Conv_Layer(256, 256, (3,5), activation, dropout),
-                            Conv_Layer(256, 256, (3,5), activation, dropout),
-                            Conv_Layer(256, 256, (3,5), activation, dropout),
-                            Conv_Layer(256, 256, (3,5), activation, dropout)
-            )
+            # self.cnn_layers = nn.Sequential(
+            self.cnn_layers = nn.ModuleList([
+                Conv_Layer(in_channels=in_dim, out_channels=128, kernel=(3,5), activation=activation, dropout=0, pool=(3,1)),
+                Conv_Layer(128, 128, (3,5), activation, dropout),
+                Conv_Layer(128, 128, (3,5), activation, dropout),
+                Conv_Layer(128, 128, (3,5), activation, dropout),
+                Conv_Layer(128, 256, (3,5), activation, dropout),
+                Conv_Layer(256, 256, (3,5), activation, dropout),
+                Conv_Layer(256, 256, (3,5), activation, dropout),
+                Conv_Layer(256, 256, (3,5), activation, dropout),
+                Conv_Layer(256, 256, (3,5), activation, dropout),
+                Conv_Layer(256, 256, (3,5), activation, dropout)
+            ])
+            # )
 
             # Features dimenion of resulting feature map: num_features = 120 -> 39 (after first conv + pool) - 2 (conv[2-10]) * 9 = 39 - 18 = 21
             # So in our use case, first fc layer should have dimensions = 256 * 21 = 5376
 
             fc_in = num_features
-            for layer in self.cnn_layers.children():
+            # for layer in self.cnn_layers.children():
+            for layer in self.cnn_layers:
                 fc_in = layer.get_new_feature_map_dimension(fc_in)
 
             self.fc_layers = nn.Sequential(
@@ -155,7 +163,10 @@ class ASR_1(nn.Module):
             )
 
         def forward(self, x):
-            x = self.cnn_layers(x) # output shape (batch_size, channels, features, time)
+            # x = self.cnn_layers(x) # output shape (batch_size, channels, features, time)
+            for layer in self.cnn_layers:
+                x = layer(x)
+
             x = x.view(x.shape[0], x.shape[1] * x.shape[2], x.shape[3]) # flattens channel and feature dimensions into one
             x = x.transpose(1, 2) # (batch_size, time, flattened_features)
 

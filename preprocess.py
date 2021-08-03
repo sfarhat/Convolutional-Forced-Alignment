@@ -184,6 +184,7 @@ def features_from_waveform(waveform, spectrogram_generator):
     log_mel_spectrogram = torch.log(spectrogram_generator(data) + log_offset)
     # Takes in audio of shape (..., time) returns (..., n_mfcc, new_time) where n_mfcc defaults to 40
     # mfcc_features = torchaudio.transforms.MFCC(n_mfcc=n_mfcc, log_mels=True)(data) 
+
     deltas = torchaudio.functional.compute_deltas(log_mel_spectrogram)
     delta_deltas = torchaudio.functional.compute_deltas(deltas)
 

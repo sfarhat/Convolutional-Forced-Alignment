@@ -11,7 +11,6 @@ from inference import alignment_error, show_activation_map, force_align, test_ac
 from dataset_utils import TIMITDataset, PhonemeTransformer, TextTransformer, get_word_timestamp_information
 from loss import SequentialNLLLoss
 from pronouncing import get_lyrics
-import matplotlib.pyplot as plt
 
 def main():
 
@@ -32,7 +31,8 @@ def main():
         transformer = TextTransformer()
         collator = LibrispeechCollator(hparams['n_mels'], transformer)
         # 1 channel input from feature spectrogram, 29 dim output from char_map + blank for CTC, 120 (40 mels + deltas + delta-deltas) features
-        net = ASR_1(in_dim=1, num_classes=len(transformer.char_map)+1, num_features=hparams['n_mels']*3, activation=hparams['activation'], dropout=0.3)
+        # net = ASR_1(in_dim=1, num_classes=len(transformer.char_map)+1, num_features=hparams['n_mels']*3, activation=hparams['activation'], dropout=0.3)
+        output_dim = len(transformer.char_map)+1
         criterion = nn.CTCLoss().to(device)
 
     elif hparams['dataset'] == 'TIMIT':
@@ -41,12 +41,19 @@ def main():
         test_dataset = TIMITDataset(os.path.join(DATASET_DIR, 'timit', 'data', 'TEST'))
         transformer = PhonemeTransformer()
         collator = TIMITCollator(hparams['n_mels'], transformer)
-        net = ASR_1(in_dim=1, num_classes=len(transformer.phon), num_features=hparams['n_mels']*3, activation=hparams['activation'], dropout=0.3)
+        # net = ASR_1(in_dim=1, num_classes=len(transformer.phon), num_features=hparams['n_mels']*3, activation=hparams['activation'], dropout=0.3)
+        output_dim = len(transformer.phon)
         criterion = SequentialNLLLoss()
 
     else:
 
         raise Exception('Not a valid dataset. Please choose between \'Librispeech\' or \'TIMIT\'.')
+
+    if hparams['model'] == 'zhang':
+        net = ASR_1(in_dim=1, num_classes=output_dim, num_features=hparams['n_mels']*3, activation=hparams['activation'], dropout=0.3)
+    else:
+        raise Exception('Not a valid model architecture. Please choose between \'zhang\'.')
+
 
     # dev_loader = torch.utils.data.DataLoader(dev_dataset, batch_size=hparams['batch_size'], shuffle=True, collate_fn=collator, pin_memory=use_cuda)
 
@@ -71,9 +78,11 @@ def main():
     if hparams['mode'] == 'train':
 
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=hparams['batch_size'], shuffle=True, collate_fn=collator, pin_memory=use_cuda)
+        # test_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False, collate_fn=collator, pin_memory=use_cuda)
         for epoch in range(start_epoch, start_epoch + hparams['epochs']):
             train(net, train_loader, criterion, optimizer, epoch, device)
             save_checkpoint(net, optimizer, epoch, hparams['activation'], hparams['ADAM_lr'], hparams['dataset'])
+            # test_accuracy(net, test_loader, criterion, device, transformer)
 
     elif hparams['mode'] == 'test': 
 
@@ -110,6 +119,7 @@ def main():
         # plt.savefig('spectrogram.png')
         # plt.show()
         guessed_alignment = force_align(net, transformer, device, input, spectrogram_generator, transcript)
+        print(guessed_alignment)
         if timit_sample:
             true_alignment = get_word_timestamp_information(hparams['timit_sample_path'])
             ae = alignment_error(guessed_alignment, true_alignment)
