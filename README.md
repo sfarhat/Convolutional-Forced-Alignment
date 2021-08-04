@@ -12,7 +12,7 @@ In this project, I attempted to massage a Convolutional Neural Network to genera
 
 To see my thought process as well as the ups and downs I experienced making this, you can read the blog-style [story.md](https://github.com/sfarhat/Convolutional-Forced-Alignment/blob/main/story.md). 
 
-If you want a detailed technical report with diagrams and equations, you can read [this paper](https://github.com/sfarhat/Convolutional-Forced-Alignment/blob/main/Convolutional_Forced_Alignment.pdf).
+If you want a detailed technical report with diagrams and equations, you can read [Convolutional_Forced_Alignment.pdf](https://github.com/sfarhat/Convolutional-Forced-Alignment/blob/main/Convolutional_Forced_Alignment.pdf).
 
 ## Requirements
 
@@ -26,7 +26,7 @@ All requirements can be found in [environment.yml](https://github.com/sfarhat/Co
 
 After cloning this repository, all available options are in [config.py](https://github.com/sfarhat/Convolutional-Forced-Alignment/blob/main/config.py):
 
-1. `DATASET_DIR`: The path to the training/test dataset. As of now, only the TIMIT dataset is supported, though in `v0.1.0`, Librispeech was supported as well.
+1. `DATASET_DIR`: The path to the training/test dataset. As of now, only the TIMIT dataset is supported, though in [`v0.1.0`])(https://github.com/sfarhat/Convolutional-Forced-Alignment/releases/tag/v0.1.0), Librispeech was supported as well.
 2. `CHECKPONIT_DIR_NAME`: The name of the directory where you would like the model checkpoints to be saved. This directory will be inside the main project directory.
 3. `ADAM_lr`: The learning rate for the ADAM optimizer.
 4. `batch_size`: The batch size for training.
