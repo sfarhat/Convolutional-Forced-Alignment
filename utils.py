@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from config import CHECKPOINT_DIR_NAME
+from config import CHECKPOINT_DIR
 import os
 
 def weights_init_unif(module, a, b):
@@ -23,7 +23,7 @@ def load_from_checkpoint(model, optimizer, activation, lr, epoch, device, datase
     checkpoint_name = f"{dataset}-activation-{activation}_LR-{lr}_epoch-{epoch-1}.pt"
 
     path = None
-    for root, dirs, files in os.walk(os.path.join(os.getcwd(), CHECKPOINT_DIR_NAME)):
+    for root, dirs, files in os.walk(CHECKPOINT_DIR):
         for filename in files:
             if filename == checkpoint_name:
                 path = os.path.join(root, filename)
@@ -42,7 +42,7 @@ def save_checkpoint(model, optimizer, epoch, activation, lr, dataset):
     dirname = f"{dataset}-activation-{activation}_LR-{lr}"
     filename = f"{dataset}-activation-{activation}_LR-{lr}_epoch-{epoch}.pt"
 
-    checkpoint_dir = os.path.join(os.getcwd(), CHECKPOINT_DIR_NAME, dirname)
+    checkpoint_dir = os.path.join(CHECKPOINT_DIR, dirname)
     save_path = os.path.join(checkpoint_dir, filename)
 
     if not os.path.exists(checkpoint_dir):

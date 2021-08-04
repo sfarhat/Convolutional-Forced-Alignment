@@ -1,5 +1,5 @@
 DATASET_DIR = '/mnt/d/Datasets'
-CHECKPOINT_DIR_NAME = 'checkpoints'
+CHECKPOINT_DIR = './checkpoints'
 
 hparams = {
     'ADAM_lr': 10e-5,
@@ -11,11 +11,13 @@ hparams = {
     'epochs': 20,
     'activation': 'prelu',
     'n_mels': 40,
-    'start_epoch': 75,
+    'start_epoch': 50,
     'mode': 'align',
     'dataset': 'TIMIT',
     'sample_path': 'audio.wav',
     'sample_transcript': 'lyrics.txt',
     'timit_sample_path': '/mnt/d/Datasets/timit/data/TRAIN/DR4/MESG0/SX72' ,
-    'model': 'zhang'
+    'model': 'zhang',
+    'cam_phonemes': [1, 2, 100],
+    'cam_word': 1
 }
