@@ -56,7 +56,6 @@ class LibrispeechCollator(object):
             inputs.append(features)
             input_lengths.append(features.shape[0]) # some examples online divide the shape by 2, why?
 
-            # TODO: change this to 'to_int()' for consistency between tranformers?
             target = self.transformer.char_to_int(transcript.lower())
             targets.append(target)
             target_lengths.append(len(target))

@@ -33,7 +33,7 @@ def pronunciation_model(transcript, transformer):
         # Remove stress numbers
         if word not in cmu_d:
             # word still appears in alignment dictionary and so will look for spaces to map to, what should we do here?
-            # TODO: this is still an edge case that can break things pretty badly
+            # TODO: OOV is an edge case that can break things pretty badly
             p.append(SPACE_TOKEN)
             continue
         p_with_stresses = cmu_d[word][0]
