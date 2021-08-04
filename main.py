@@ -7,7 +7,7 @@ from preprocess import LibrispeechCollator, TIMITAlignmentCollator, TIMITCollato
 from utils import weights_init_unif, load_from_checkpoint, save_checkpoint
 from model import ASR_1 
 from training import train
-from inference import alignment_error, show_activation_map, force_align, test_accuracy, test_alignment
+from inference import alignment_error, show_activation_map, force_align, test_Librispeech, test_accuracy, test_alignment
 from dataset_utils import TIMITDataset, PhonemeTransformer, TextTransformer, get_word_timestamp_information
 from loss import SequentialNLLLoss
 from pronouncing import get_lyrics
@@ -87,13 +87,27 @@ def main():
     elif hparams['mode'] == 'test': 
 
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, collate_fn=collator, pin_memory=use_cuda)
-        test_accuracy(net, test_loader, criterion, device, transformer)
+        
+        if hparams['dataset'] == 'Librispeech':
+            test_Librispeech(net, test_loader, criterion, device, transformer)
+        else:
+            test_accuracy(net, test_loader, criterion, device, transformer)
 
     elif hparams['mode'] == 'cam':
 
-        waveform, _ = torchaudio.load(hparams['sample_path'])
+        if hparams['timit_sample_path'] != '':
+            timit_sample = True
+        else:
+            timit_sample = False
+
+        if not timit_sample:
+            audio_path = hparams['sample_path']
+        else:
+            audio_path = hparams['timit_sample_path'] + '.WAV'
+
+        waveform, _ = torchaudio.load(audio_path)
         input, _ = preprocess_single_waveform(waveform, hparams['n_mels'])
-        show_activation_map(net, device, input, [1, 2, 10])
+        show_activation_map(net, device, input, hparams['cam_phonemes'])
 
     elif hparams['mode'] == 'align':
 
@@ -128,10 +142,13 @@ def main():
     elif hparams['mode'] == 'test-align':
 
         alignment_collator = TIMITAlignmentCollator(hparams['n_mels'], transformer)
+
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, collate_fn=alignment_collator, pin_memory=use_cuda)
         train_aer = test_alignment(net, train_loader, device, transformer)
+
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, collate_fn=alignment_collator, pin_memory=use_cuda)
         test_aer = test_alignment(net, test_loader, device, transformer)
+        
         aer = (train_aer + test_aer) / 2
         print('Overall AER: {}%'.format(aer))
 

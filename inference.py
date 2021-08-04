@@ -1,4 +1,3 @@
-from typing import final
 import torch
 from ctcdecode import CTCBeamDecoder
 from grad_cam import Sequential_GRAD_CAM
@@ -6,6 +5,7 @@ import matplotlib.pyplot as plt
 from loss import calculate_loss
 from pronouncing import generate_spaces_in_guess, pronunciation_model
 from dataset_utils import spec_time_to_waveform_time, SPACE_TOKEN
+from config import hparams
 
 def test_accuracy(model, test_loader, criterion, device, transformer):
     """
@@ -34,7 +34,6 @@ def test_accuracy(model, test_loader, criterion, device, transformer):
             for log_probs, true_target, target_len, input in zip(output, targets, target_lengths, inputs):
 
                 # For TIMIT, moving to 39 test labels occurs in target_to_text()
-                # TODO: this doesn't generalize well to handle both datasets
                 guessed_text = timit_decode(log_probs, target_len, transformer)
                 true_text = transformer.target_to_text(true_target[:target_len])
 
@@ -154,8 +153,8 @@ def force_align(model, transformer, device, input, spectrogram_generator, transc
         transformer ([type]): [description]
         device ([type]): [description]
         input ([type]): [description]
+        spectrogram_generator ([type]): [description]
         transcript (list): List of words making up transcript 
-        spectrogram ([type]): [description]
     """
 
     pronounced_transcript = pronunciation_model(transcript, transformer)
@@ -191,20 +190,26 @@ def force_align(model, transformer, device, input, spectrogram_generator, transc
 
     # print(space_indices)
 
-    # TODO: pass desired words into CAM generator via space_indices since they're in spectrogram space
-    # desired_cam_range = list(range(space_indices[0], space_indices[1]))
-    # desired_cam_indices = [] 
-    # prev = None
-    # num_phones_seen = -1
-    # for phon_idx, phon in enumerate(guess_pre_collapsing):
-    #     if phon != prev:
-    #         num_phones_seen += 1
-    #     if phon_idx in desired_cam_range and num_phones_seen not in desired_cam_indices:
-    #         desired_cam_indices.append(num_phones_seen)
-    #     prev = phon
+    # pass desired words into CAM generator via space_indices since they're in spectrogram space
+    if hparams['cam_word'] >= len(space_indices):
+        print(f"Invalid word index to compute CAM over. Please choose a value less than {len(space_indices)}")
+    else:
+        if hparams['cam_word'] == 0:
+            desired_cam_range = list(range(0, space_indices[hparams['cam_word']]))
+        else:
+            desired_cam_range = list(range(space_indices[hparams['cam_word']-1], space_indices[hparams['cam_word']]))
+        desired_cam_indices = [] 
+        prev = None
+        num_phones_seen = -1
+        for phon_idx, phon in enumerate(guess_pre_collapsing):
+            if phon != prev:
+                num_phones_seen += 1
+            if phon_idx in desired_cam_range and num_phones_seen not in desired_cam_indices:
+                desired_cam_indices.append(num_phones_seen)
+            prev = phon
 
-    # # squeezing necessary since it is unsqueezed again in this fn, super clean lmao
-    # show_activation_map(model, device, input.squeeze(0), desired_cam_indices)
+        # squeezing necessary since it is unsqueezed again in this fn, super clean lmao
+        show_activation_map(model, device, input.squeeze(0), desired_cam_indices)
 
     word_alignments = []
 
@@ -248,17 +253,13 @@ def alignment_error(guess, truth):
 def phoneme_error_rate(guess, truth):
     """Phoneme Error Rate of sequence"""
 
-    collapsed_guess, collapsed_true = collapse_repeats(guess), collapse_repeats(truth)
-    levenshtein_dist = edit_distance(collapsed_guess, collapsed_true)
-    per = levenshtein_dist / len(collapsed_true)
+    # collapsed_guess, collapsed_true = collapse_repeats(guess), collapse_repeats(truth)
+    # levenshtein_dist = edit_distance(collapsed_guess, collapsed_true)
+    # per = levenshtein_dist / len(collapsed_true)
 
-    # levenshtein_dist = edit_distance(guess, truth)
-    # per = levenshtein_dist / len(truth)
+    levenshtein_dist = edit_distance(guess, truth)
+    per = levenshtein_dist / len(truth)
 
-    # if per > .4:
-    #     print(collapsed_guess)
-    #     print(collapsed_true)
-    
     return per
 
 def collapse_repeats(sequence):
@@ -338,6 +339,47 @@ def edit_distance_path(a, b):
                 i, j = i-1, j-1
 
     return path[::-1]
+
+def test_Librispeech(model, test_loader, criterion, device, transformer):
+    """
+    Evaluation for model.
+
+    Args:
+        model (nn.Module): Network to test on
+        test_loader (torch.utils.data.dataloader): DataLoader for test dataset
+        criterion (nn.modules.loss): Loss function
+        device (torch.device): Device (cpu or cuda)
+        transformer (timit_utils.PhonemeTransformer or utils.TextTransfomer): Transformer that handles all labels <-> text
+    """
+
+    model.eval()
+    data_len = len(test_loader.dataset)
+    with torch.no_grad():
+        char_err_rates = []
+        for batch_num, data in enumerate(test_loader):
+
+            inputs, input_lengths, targets, target_lengths = data
+            inputs, targets = inputs.to(device), targets.to(device)
+            # output of shape batch x time x classes
+            output = model(inputs)
+            loss = calculate_loss(criterion, output, targets, input_lengths, target_lengths)
+
+            for log_probs, true_target, target_len, input in zip(output, targets, target_lengths, inputs):
+
+                guessed_text = greedy_decode(log_probs, transformer)
+                true_text = transformer.target_to_text(true_target[:target_len])
+
+                # Phoneme error rate fn doubles as Character Error Rate as well.
+                cer = phoneme_error_rate(guessed_text, true_text).item()
+                char_err_rates.append(cer)
+
+                print(f"[{(batch_num+1) * len(inputs)}/{data_len} ({100. * (batch_num+1) / len(test_loader):.2f}%)]\tCER: {cer:.6f}")
+
+    avg_cer = sum(char_err_rates) / len(char_err_rates) * 100
+
+    print('Average CER: {}%'.format(avg_cer))
+
+    return avg_cer
 
 def beam_search_decode(log_probs, transformer):
 

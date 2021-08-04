@@ -74,7 +74,8 @@ class Sequential_GRAD_CAM(object):
         return combined_cams 
 
     def get_target_classes(self, log_probs, guessed_labels, desired_phone_indices):
-        """Given indices of desired phonemes in guessed_labels, will return time-indexed dictionary of gradient-required objects corresponding to them for use in CAM"""
+        """Given indices of desired phonemes (ignoring repeats) in guessed_labels, will return time-indexed dictionary 
+        of gradient-required objects corresponding to them for use in CAM. Handles out-of-boundes desired indices."""
 
         def get_target_classes_for_single_phone(log_probs, guessed_labels, desired_phone_idx):
             # Off by one so that first "change" corresponds to first phoneme
