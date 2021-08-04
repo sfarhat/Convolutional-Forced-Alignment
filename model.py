@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from config import hparams
 
 class Conv_Layer(nn.Module):
 
@@ -132,9 +133,17 @@ class ASR_1(nn.Module):
             # is a good exercise for understanding how CNNs work
             # https://discuss.pytorch.org/t/why-add-an-extra-dimension-to-convolution-layer-weights/86954/2
 
+
+            # TODO: this is necessary due to an oversight on my part where I trained the model for 50 epochs but had the first layer be
+            # relu instead of prelu. Until it is retrained, I'll just leave it like this as the v0.1.0 checkpoint assumes this
+            if hparams['dataset'] == 'Librispeech':
+                first_layer = Conv_Layer(in_channels=in_dim, out_channels=128, kernel=(3,5), activation='relu', dropout=0, pool=(3,1))
+            else:
+                first_layer = Conv_Layer(in_channels=in_dim, out_channels=128, kernel=(3,5), activation=activation, dropout=0, pool=(3,1))
+
             # self.cnn_layers = nn.Sequential(
             self.cnn_layers = nn.ModuleList([
-                Conv_Layer(in_channels=in_dim, out_channels=128, kernel=(3,5), activation=activation, dropout=0, pool=(3,1)),
+                first_layer,
                 Conv_Layer(128, 128, (3,5), activation, dropout),
                 Conv_Layer(128, 128, (3,5), activation, dropout),
                 Conv_Layer(128, 128, (3,5), activation, dropout),
