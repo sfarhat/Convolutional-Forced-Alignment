@@ -12,7 +12,7 @@ hparams = {
     'activation': 'prelu',
     'n_mels': 40,
     'start_epoch': 50,
-    'mode': 'align',
+    'mode': 'test-align',
     'dataset': 'TIMIT',
     'sample_path': 'audio.wav',
     'sample_transcript': 'lyrics.txt',
